@@ -1,0 +1,10 @@
+DIGMARK V3.1
+Production Deployment Package
+Version: 3.1.0
+Build: 2026-09-19
+Package Version: 1.0.0
+Environment: Production
+Framework: Next.js 16.3.5 (App Router) / React 19.2.8 / TypeScript
+Data: Google Sheets (service account) — no local database
+Runtime: Node.js 20.x / 22.x
+Production Port: 3415

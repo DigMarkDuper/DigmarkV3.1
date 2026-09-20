@@ -1,26 +1,123 @@
 @import "tailwindcss";
 
+/* ============================================================================
+   DIGMARK V3.1 — GLOBAL DESIGN SYSTEM (UI_DESIGN_SPEC.md §B)
+   ============================================================================
+   This replaces the Phase A shell (Geist + zinc palette + Arial). The V3
+   validated glassmorphism design language is the single source of truth for
+   every token below. Hex values are [PRESERVED] verbatim from
+   src/config/constants.ts / V3 ui/components.py.
+
+   NOTE: V3 has NO dark theme and the glass recipe relies on white gradients,
+   so the Phase A `prefers-color-scheme: dark` block was intentionally REMOVED
+   (spec F.22). Light-first only.
+
+   Components must NEVER hard-code magic colours/radii/shadows — reference the
+   tokens below via Tailwind theme utilities (bg-surface, text-ink, ...) or
+   var(--dm-*) for non-colour geometry.
+   ========================================================================== */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* --- Brand palette (spec B.2) [PRESERVED] ------------------------------- */
+  --dm-blue: #0058a3;        /* brand  */
+  --dm-blue-hover: #0a6fbf;  /* brand-hover */
+  --dm-yellow: #ffdb00;      /* accent */
+  --dm-ink: #102a43;
+  --dm-muted: #5b6b7e;
+  --dm-grid: #e6ebf2;
+  --dm-success: #22a06b;
+  --dm-warning: #e8930c;
+  --dm-danger: #d64550;
+
+  /* --- Glass surfaces (spec B.2) [PRESERVED] ------------------------------ */
+  --dm-surface: rgba(255, 255, 255, 0.72);
+  --dm-surface-strong: rgba(255, 255, 255, 0.85);
+  --dm-surface-input: rgba(255, 255, 255, 0.55);
+  --dm-border: rgba(255, 255, 255, 0.9);
+  --dm-divider: rgba(0, 88, 163, 0.12);
+  --dm-blue-glow: rgba(0, 88, 163, 0.1);
+  --dm-yellow-glow: rgba(255, 219, 0, 0.14);
+  --dm-ink-on-brand: #ffffff;
+
+  /* --- Border radius scale (spec B.4) ------------------------------------- */
+  --dm-radius-sm: 10px;     /* tabs top, 34px icon tiles */
+  --dm-radius-sm6: 12px;    /* buttons, inputs, Home pill */
+  --dm-radius-md: 14px;     /* metric chips, small cards */
+  --dm-radius-md16: 16px;   /* monogram tile, 52/54px module icons */
+  --dm-radius-lg: 20px;     /* metric / workspace cards */
+  --dm-radius-panel: 22px;  /* hero visual panel */
+  --dm-radius-pill: 9999px; /* chips, badges, balls */
+
+  /* --- Shadow scale (spec B.4) -------------------------------------------- */
+  --dm-shadow-xs: 0 3px 10px rgba(0, 88, 163, 0.08);
+  --dm-shadow-xs-b6: 0 4px 12px rgba(0, 88, 163, 0.1);
+  --dm-shadow: 0 8px 22px rgba(0, 88, 163, 0.1);
+  --dm-shadow-hover: 0 18px 38px rgba(0, 88, 163, 0.2);
+  --dm-shadow-lift: 0 20px 45px rgba(0, 88, 163, 0.18);
+  --dm-shadow-cta: 0 6px 18px rgba(0, 88, 163, 0.25);
+  --dm-shadow-cta-hover: 0 10px 24px rgba(0, 88, 163, 0.32);
+  --dm-shadow-panel: 0 18px 40px rgba(0, 88, 163, 0.16);
+  --dm-shadow-home-hover: 0 8px 18px rgba(0, 88, 163, 0.22);
+  --dm-shadow-mono: 0 8px 20px rgba(0, 88, 163, 0.3);
+  --dm-shadow-arrow: 0 2px 6px rgba(255, 219, 0, 0.35);
+  --dm-shadow-ball: 0 10px 24px rgba(240, 200, 0, 0.4);
+
+  /* --- Typography (spec B.1) ---------------------------------------------- */
+  /* --font-manrope is injected by next/font/google in app/layout.tsx. Fallback
+     matches V3. `font-sans` and every font-manrope reference resolve here. */
+  --font-sans: var(--font-manrope), Manrope, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, Menlo, Consolas, monospace;
 }
 
+/* Semantic colour tokens that generate the bg-/text-/border-/ring- utilities
+   used across components (spec B.2). Exposed through the Tailwind theme. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-brand: var(--dm-blue);
+  --color-brand-hover: var(--dm-blue-hover);
+  --color-accent: var(--dm-yellow);
+  --color-ink: var(--dm-ink);
+  --color-muted: var(--dm-muted);
+  --color-grid: var(--dm-grid);
+  --color-success: var(--dm-success);
+  --color-warning: var(--dm-warning);
+  --color-danger: var(--dm-danger);
+  --color-surface: var(--dm-surface);
+  --color-surface-strong: var(--dm-surface-strong);
+  --color-surface-input: var(--dm-surface-input);
+  --color-border: var(--dm-border);
+  --color-divider: var(--dm-divider);
+  --color-blue-glow: var(--dm-blue-glow);
+  --color-yellow-glow: var(--dm-yellow-glow);
+  --color-ink-on-brand: var(--dm-ink-on-brand);
+  --color-focus-ring: var(--dm-blue);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* App-level background layers (spec B.5) [PRESERVED] — painted once, fixed.
+   A dedicated full-height element (src/components/layout/Background.tsx) so
+   opaque content (tables with sticky headers) still reads the glow. */
+.dm-bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1200px 600px at 12% -8%, rgba(0, 88, 163, 0.1), transparent 60%),
+    radial-gradient(1000px 520px at 108% 0%, rgba(255, 219, 0, 0.14), transparent 55%),
+    linear-gradient(165deg, #eef3fb 0%, #f7f9fd 48%, #fbf6e6 100%);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--dm-ink);
+  background-color: transparent; /* real painting happens on .dm-bg-layer */
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Reduced-motion safety net (spec B.9 / E.9): kill any lingering transforms.
+   Per-component `motion-reduce:` utilities do the real per-element work. */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms;
+    animation-duration: 0.01ms;
+  }
 }

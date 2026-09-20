@@ -29,9 +29,25 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+nextdbg.log
+dev-*.log
+next-fore.log
+out_vit.txt
+testout.txt
 
 # env files (can opt-in for committing if needed)
 .env*
+# commit the env template, but NEVER real env / audit dumps
+!.env.example
+docs/digmark_v3.1_env_check.txt
+docs/*_env_check*.txt
+
+# server-side audit log (JSONL)
+/data
+
+# local planning / test tool state (not source)
+/.planning
+/.vitest
 
 # vercel
 .vercel
