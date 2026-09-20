@@ -32,7 +32,9 @@ import { WorkspaceSection } from "@/components/grid/WorkspaceSection";
 import { SectionHead } from "@/components/sections/SectionHead";
 import { SalesFunnelCard } from "@/components/metrics/SalesFunnelCard";
 import { LoadingState } from "@/components/sections/LoadingState";
+import { EmptyState } from "@/components/sections/EmptyState";
 import { ErrorState } from "@/components/sections/ErrorState";
+import { ProspectMapSection } from "@/components/metrics/ProspectMapSection";
 
 interface AuthMe { ok: boolean; identity: string; role: string }
 interface FunnelPayload {
@@ -47,6 +49,7 @@ interface Metrics {
 }
 interface MetricsApi { ok: boolean; metrics: Metrics; funnel: FunnelPayload }
 interface MetaTabs { ok: boolean; tabs: { drift: boolean }[]; drift: boolean }
+interface TableApi<T> { ok: boolean; table: string; rows: T[] }
 
 const SECTION_SUB = "Ringkasan angka penting, live dari data.";
 
@@ -87,6 +90,10 @@ export default function Overview() {
   const metrics = useApi<MetricsApi>("/api/overview/metrics", (m) =>
     m.metrics.leads === 0 && m.metrics.closing === 0 && m.metrics.spend === 0);
   const meta = useApi<MetaTabs>("/api/meta/tabs", (t) => !t.drift);
+  const waAdmin = useApi<TableApi<Record<string, unknown>>>(
+    "/api/tables/wa_admin",
+    (d) => !d.rows.length,
+  );
 
   const authed = auth.status === "ready";
   const gateOpen = auth.status === "error" && isAuthFailure(auth.error);
@@ -177,11 +184,32 @@ export default function Overview() {
           />
         )}
 
-        {/* Cache-busting refresh (refetches metrics + tab health). */}
+        {/* Cache-busting refresh (refetches metrics + tab health + wa_admin). */}
         <div className="mt-2 flex justify-end">
-          <Button variant="secondary" onClick={() => { metrics.refetch(); meta.refetch(); }}>
+          <Button variant="secondary" onClick={() => { metrics.refetch(); meta.refetch(); waAdmin.refetch(); }}>
             🔄 Refresh Data
           </Button>
+        </div>
+
+        {/* Persebaran Asal Prospek — wa_admin driven interactive Indonesia map. */}
+        <div className="mt-10">
+          <SectionHead
+            title="Persebaran Asal Prospek"
+            sub="Distribusi prospek berdasarkan asal wilayah di Indonesia, live dari data WA Admin."
+          />
+          <div className="mt-5">
+            {waAdmin.status === "error" ? (
+              <ErrorState failure={waAdmin.error!} onRetry={waAdmin.refetch} />
+            ) : waAdmin.status === "loading" ? (
+              <div className="rounded-[20px] border border-border bg-surface p-4 shadow-[var(--dm-shadow)]">
+                <LoadingState variant="card" />
+              </div>
+            ) : waAdmin.status === "empty" || !waAdmin.data?.rows.length ? (
+              <EmptyState title="Belum ada data asal prospek" hint="Data wa_admin masih kosong pada periode ini." />
+            ) : (
+              <ProspectMapSection rows={waAdmin.data.rows} />
+            )}
+          </div>
         </div>
 
         <Footer />

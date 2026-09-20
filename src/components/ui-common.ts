@@ -41,6 +41,18 @@ export const PALETTE = {
   catMint: "#B8D8C1",
 } as const;
 
+// --- Brand blue heat ramp (single source for map fill + legend gradient) ---
+// Lightest (#catBlue) -> deepest (PALETTE.brand). Both IndonesiaMap's heat fill
+// and ProspectMapSection's legend gradient derive from this so they never drift.
+export const BRAND_RAMP = [
+  "#BFD9F0",
+  "#7DB4E2",
+  "#4F86C4",
+  "#2F66A8",
+  "#124F8F",
+  "#0058A3", // PALETTE.brand
+] as const;
+
 // --- Radius scale (spec B.4) ---
 export const RADII = {
   sm: "10px",
