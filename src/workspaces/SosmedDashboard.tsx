@@ -147,6 +147,10 @@ function MultiSelectDropdown({
 }) {
   const open = openMenu === name;
   const [query, setQuery] = useState("");
+  // Right-edge aware anchoring: when a left-anchored 256px (w-64) panel would cross
+  // the filter CARD's right edge (its grid parent), anchor it right so the trailing
+  // columns never hang off the card / cause horizontal overflow on smaller screens.
+  const [alignRight, setAlignRight] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -191,7 +195,21 @@ function MultiSelectDropdown({
         aria-label={label}
         onClick={() => {
           setQuery("");
-          setOpenMenu(open ? null : name);
+          if (open) {
+            setOpenMenu(null);
+            return;
+          }
+          if (wrapRef.current) {
+            const r = wrapRef.current.getBoundingClientRect();
+            // Anchor the 256px (w-64) panel to the CARD edge, not the viewport:
+            // the wrapper's parent is the filter grid, whose right edge equals the
+            // card's inner content edge — flip right when a left-anchored panel
+            // would cross it, so trailing columns never hang off the card.
+            const grid = wrapRef.current.parentElement;
+            const edge = grid ? grid.getBoundingClientRect().right : window.innerWidth - 8;
+            setAlignRight(r.left + 256 > edge);
+          }
+          setOpenMenu(name);
         }}
         className={
           "inline-flex w-full items-center gap-2 rounded-[12px] border bg-surface-input px-3 py-2 text-[0.82rem] font-semibold transition-colors " +
@@ -231,7 +249,7 @@ function MultiSelectDropdown({
               triggerRef.current?.focus();
             }
           }}
-          className="absolute z-30 mt-2 w-64 min-w-0 rounded-[12px] border border-border bg-surface p-2 shadow-[var(--dm-shadow-panel)]"
+          className={`absolute z-30 mt-2 ${alignRight ? "right-0" : "left-0"} w-64 min-w-0 rounded-[12px] border border-border bg-surface p-2 shadow-[var(--dm-shadow-panel)]`}
         >
           <input
             ref={searchRef}
@@ -659,8 +677,12 @@ export function SosmedDashboard({ rows, isEditor, onRefresh }: SosmedDashboardPr
               </Button>
             </header>
 
-            {/* Filters — expanded multi-dimension, compact glass card. */}
-            <div className="mb-6 rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)] backdrop-blur-[8px]">
+            {/* Filters — expanded multi-dimension, compact glass card.
+                `relative z-20` elevates this card's stacking context so the absolute
+                dropdown panels paint ABOVE the sibling cards/tables below (every
+                element with backdrop-blur creates its own auto-z stacking context,
+                and later DOM siblings would otherwise paint over an open panel). */}
+            <div className="relative z-20 mb-6 rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)] backdrop-blur-[8px]">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 {filterCardHeader(`Filter Data${activeFilterCount > 0 ? ` (${activeFilterCount} aktif)` : ""}`)}
                 <button
