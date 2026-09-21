@@ -103,6 +103,14 @@ export const TAB_SCHEMAS: Record<string, TabSchema> = {
       "Waktu Interview", "Tipe Interview", "Hasil Interview", "Catatan PIC",
     ],
   },
+  content_plan: {
+    tab: "CONTENT_PLAN",
+    columns: [
+      "Judul / Ide Konten", "Tanggal Publish", "Deadline Produksi",
+      "Content Pillar", "Format", "Platform", "PIC", "Brief",
+      "Reference Link", "Priority", "Status Plan",
+    ],
+  },
 };
 
 /** All tab titles in the same order as V3 `settings.SHEETS`. */
@@ -117,6 +125,7 @@ export const TAB_ORDER: string[] = [
   "ads_meta",
   "mekari",
   "interview",
+  "content_plan",
 ];
 
 /** Return the declared column headers for an app key, or [] if unknown. */

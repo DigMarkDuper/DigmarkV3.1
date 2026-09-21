@@ -17,6 +17,7 @@ import {
   truthy,
   workload,
   actionRequired,
+  calendarDefaultMonth,
   contentStrategy,
   deadlineDate,
   deadlineMonitor,
@@ -255,14 +256,14 @@ describe("SosmedDashboard (react-dom/server, no browser)", () => {
     expect(html).toContain("Social Media");
     expect(html).toContain("Production Overview");
     expect(html).toContain("Workload per PIC");
-    expect(html).toContain("Master Production Pipeline");
+    expect(html).toContain("Master Content Data Explorer");
     expect(html).toContain("Simpan Perubahan");
     expect(html).toContain("Hutang Post IG");
   });
 
   it("renders read-only (no save control) for a viewer", () => {
     const html = renderToStaticMarkup(<SosmedDashboard rows={FIXTURE} isEditor={false} onRefresh={() => {}} />);
-    expect(html).toContain("Master Production Pipeline");
+    expect(html).toContain("Master Content Data Explorer");
     // The subtitle mentions 'Simpan Perubahan' too, but the SAVE BUTTON (💾 prefix)
     // must be absent for a viewer (server also 403s viewer PATCH).
     expect(html).not.toContain("💾 Simpan Perubahan");
@@ -272,7 +273,7 @@ describe("SosmedDashboard (react-dom/server, no browser)", () => {
     const noProses = [{ "Kode Konten": "K1", Output: "Video", PIC: "Ejak" }]; // no PROSES key
     const html = renderToStaticMarkup(<SosmedDashboard rows={noProses} isEditor onRefresh={() => {}} />);
     expect(html).toContain("Data sosmed tidak tersedia atau kosong.");
-    expect(html).not.toContain("Master Production Pipeline");
+    expect(html).not.toContain("Master Content Data Explorer");
 
     const emptyRows = renderToStaticMarkup(<SosmedDashboard rows={[]} isEditor onRefresh={() => {}} />);
     expect(emptyRows).toContain("Data sosmed tidak tersedia atau kosong.");
@@ -514,18 +515,19 @@ describe("Content Operations Dashboard derivations", () => {
 
   it("SosmedDashboard renders new sections alongside legacy ones", () => {
     const html = renderToStaticMarkup(<SosmedDashboard rows={FIXTURE} isEditor onRefresh={() => {}} />);
-    for (const t of ["Production Overview", "Production Funnel", "Status Breakdown", "Workload per PIC", "Deadline Monitoring", "Publishing Tracker", "Content Strategy", "Output Trend", "Action Required", "Master Production Pipeline", "Total Planned", "Completion Rate"]) {
+    for (const t of ["Production Overview", "Production Funnel", "Status Breakdown", "Workload per PIC", "Deadline Monitoring", "Publishing Tracker", "Content Strategy", "Output Trend", "Action Required", "Master Content Data Explorer", "Content Planning", "Kalender", "Total Planned", "Completion Rate"]) {
       expect(html).toContain(t);
     }
+    expect(html).toContain("+ Content Plan"); // header action cluster
     expect(html).toContain("💾 Simpan Perubahan"); // editor still present
   });
 });
 
 describe("Sosmed filter bar — searchable multi-select dropdown (redesign)", () => {
-  it("renders the six searchable dropdown triggers instead of the old checkbox grid", () => {
+  it("renders the six GLOBAL searchable dropdown triggers (section-1 filter) + six explorer filters", () => {
     const html = renderToStaticMarkup(<SosmedDashboard rows={FIXTURE} isEditor onRefresh={() => {}} />);
-    // Six triggers, all closed by default, exposed as listbox popovers.
-    expect((html.match(/aria-haspopup="listbox"/g) ?? []).length).toBe(6);
+    // 6 global filter triggers + 6 explorer filter triggers = 12 listbox popovers.
+    expect((html.match(/aria-haspopup="listbox"/g) ?? []).length).toBe(12);
     for (const t of ["PIC", "Bulan Deadline", "Status", "Platform", "Content Pillar", "Format"]) {
       expect(html).toContain(`aria-label="${t}"`);
     }
@@ -535,7 +537,6 @@ describe("Sosmed filter bar — searchable multi-select dropdown (redesign)", ()
     expect(html).toContain("Reset");
     expect(html).not.toContain("Filter Aktif");
     expect(html).not.toContain("Hapus Semua");
-    // Old always-open checkbox columns are gone.
     expect((html.match(/max-h-\[160px\]/g) ?? []).length).toBe(0);
   });
 
@@ -559,5 +560,203 @@ describe("Sosmed filter bar — searchable multi-select dropdown (redesign)", ()
     expect(extra.chip).toBe("4 dipilih");
     expect(extra.active).toBe(true);
     expect(extra.allChecked).toBe(true);
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * Social Media Command Center — new derivations covering the 8 test scenarios
+ * (save plan, add-to-production ONE record, search, filter PIC/platform,
+ * expand, pagination, edit-save) + division-by-zero / empty branches.
+ * ------------------------------------------------------------------------ */
+import {
+  searchContents,
+  deadlineBucket,
+  paginationWindow,
+  calendarCells,
+  contentKode,
+  buildProductionRow,
+  buildPlanPayload,
+  productionKodeExists,
+  COLUMN_DEFS,
+  EXPLORER_DEFAULT_COLS,
+} from "@/workspaces/sosmed";
+import { columnsFor as planColumnsFor } from "@/server/adapter/schema";
+
+function planRow(partial: Partial<Row>): Row {
+  return {
+    "Judul / Ide Konten": "Launch Reels",
+    "Tanggal Publish": "10/10/2026",
+    "Deadline Produksi": "20/10/2026",
+    "Content Pillar": "DuperPedia",
+    "Format": "Video",
+    "Platform": "Instagram",
+    "PIC": "Ejak",
+    "Brief": "Creative brief",
+    "Reference Link": "https://ref.example",
+    "Priority": "High",
+    "Status Plan": "APPROVED",
+    ...partial,
+  } as Row;
+}
+
+describe("Sosmed Command Center — search / pagination / deadline / calendar", () => {
+  it("SC1 searchContents finds rows across Kode/Judul/Pillar/Platform/Format/PIC (case-insensitive)", () => {
+    expect(searchContents(FIXTURE, "")).toEqual(FIXTURE); // empty -> all unchanged
+    expect(searchContents(FIXTURE, "  ")).toEqual(FIXTURE);
+    expect(searchContents(FIXTURE, "J1").map((r) => r["Kode Konten"])).toEqual(["K1"]);      // Judul
+    expect(searchContents(FIXTURE, "ejak").map((r) => r["Kode Konten"]).sort()).toEqual(["K1", "K3"]); // PIC
+    expect(searchContents(FIXTURE, "youtube").map((r) => r["Kode Konten"])).toEqual(["K3"]); // Output
+    expect(searchContents(FIXTURE, "no-match")).toEqual([]);
+  });
+
+  it("SC1 paginationWindow always shows 1, total, current ±1 with ellipsis collapse", () => {
+    expect(paginationWindow(1, 1)).toEqual([1]);
+    expect(paginationWindow(1, 3)).toEqual([1, 2, 3]);
+    // 20 pages, current 10 -> 1 … 9 10 11 … 20
+    expect(paginationWindow(10, 20)).toEqual([1, "…", 9, 10, 11, "…", 20]);
+    expect(paginationWindow(1, 20)).toEqual([1, 2, "…", 20]);
+    expect(paginationWindow(20, 20)).toEqual([1, "…", 19, 20]);
+    // division-by-zero / degenerate guards
+    expect(paginationWindow(1, 0)).toEqual([1]);
+    expect(paginationWindow(999, 5)).toContain(5); // clamped to totalPages
+  });
+
+  it("SC1 deadlineBucket classifies overdue/dueToday/dueThisWeek/future/completed/ALL", () => {
+    const today = new Date(2026, 8, 20); // 2026-09-20
+    expect(deadlineBucket(opsRow({ PROSES: "DONE", "Tanggal Deadline": "10/08/2026" }), today)).toBe("completed");
+    expect(deadlineBucket(opsRow({ PROSES: "", "Tanggal Deadline": "01/09/2026" }), today)).toBe("overdue");
+    expect(deadlineBucket(opsRow({ PROSES: "", "Tanggal Deadline": "20/09/2026" }), today)).toBe("dueToday");
+    expect(deadlineBucket(opsRow({ PROSES: "", "Tanggal Deadline": "22/09/2026" }), today)).toBe("dueThisWeek");
+    expect(deadlineBucket(opsRow({ PROSES: "", "Tanggal Deadline": "30/09/2026" }), today)).toBe("future");
+    expect(deadlineBucket(opsRow({ PROSES: "", "Tanggal Deadline": "bad" }), today)).toBe("ALL");
+  });
+
+  it("SC1 calendarCells puts deadline rows on their day across a Monday-first grid", () => {
+    // June 2026: Jun 1 is a Monday. Deadline 03/06 -> cell day 3, fine.
+    const today = new Date(2026, 5, 10);
+    const rows = [opsRow({ "Tanggal Deadline": "03/06/2026", "Judul Konten": "C1" })];
+    const cells = calendarCells(rows, 2026, 5, today);
+    // First cell (offset 0, Monday) is day 1; iterate even though it's mid-grid.
+    const day3 = cells.find((c) => c.day === 3 && !c.isOutside)!;
+    expect(day3).not.toBeUndefined();
+    expect(day3.rows.map((r) => r["Judul Konten"])).toEqual(["C1"]);
+    // 7 columns render: total cells is a multiple of 7.
+    expect(cells.length % 7).toBe(0);
+    expect(cells.find((c) => c.day === today.getDate() && !c.isOutside)?.isToday).toBe(true);
+    // 31 days in June -> all in-month cells present.
+    expect(cells.filter((c) => !c.isOutside).length).toBe(30);
+  });
+
+  it("SC1 calendarDefaultMonth opens on a populated month, else today (data-aware §4.2)", () => {
+    const today = new Date(2026, 8, 21); // 2026-09-21
+    // Only past-month deadlines (Apr–Aug) -> must jump to the busiest month, earliest tie-break.
+    const rows = [
+      opsRow({ "Tanggal Deadline": "12/06/2026" }), // Jun
+      opsRow({ "Tanggal Deadline": "03/04/2026" }), // Apr
+      opsRow({ "Tanggal Deadline": "28/06/2026" }), // Jun
+      opsRow({ "Tanggal Deadline": "15/08/2026" }), // Aug
+      opsRow({ "Tanggal Deadline": "19/08/2026" }), // Aug
+    ];
+    // Jun has 2 rows -> Jun wins; earliest tie-break among counts.
+    const d = calendarDefaultMonth(rows, today);
+    expect(d.getFullYear()).toBe(2026);
+    expect(d.getMonth()).toBe(5); // June (0-indexed)
+    expect(d.getDate()).toBe(1);
+    // Today's month present -> stays on today's month.
+    const current = [...rows, opsRow({ "Tanggal Deadline": "10/09/2026" })];
+    const c = calendarDefaultMonth(current, today);
+    expect(c.getMonth()).toBe(8);
+    expect(c.getFullYear()).toBe(2026);
+    // Tie between two months -> earliest month (Apr vs May) wins.
+    const tie = [
+      opsRow({ "Tanggal Deadline": "05/05/2026" }),
+      opsRow({ "Tanggal Deadline": "09/05/2026" }),
+      opsRow({ "Tanggal Deadline": "06/04/2026" }),
+      opsRow({ "Tanggal Deadline": "08/04/2026" }),
+    ];
+    const t = calendarDefaultMonth(tie, today);
+    expect(t.getMonth()).toBe(3); // April
+    // Bad-date rows + empty -> fallback to today's month.
+    const empty = [opsRow({ "Tanggal Deadline": "bad" }), opsRow({ "Tanggal Deadline": "" })];
+    const fb = calendarDefaultMonth(empty, today);
+    expect(fb.getMonth()).toBe(8);
+    expect(calendarDefaultMonth([], today).getMonth()).toBe(8);
+  });
+
+  it("SC8 inline editor Save iterates the page slice and PATCHes only changed cells (edit-save)", () => {
+    const rows = [opsRow({ "Kode Konten": "K1", "Judul Konten": "A", PROSES: "DONE" }), opsRow({ "Kode Konten": "K2", "Judul Konten": "B", PROSES: "PENDING" })];
+    const full = draftFor(rows);
+    full[1]["PROSES"] = "DONE"; // change one cell on the page slice
+    const patches = diffPatches(rows, full);
+    expect(patches).toEqual([{ rowIndex: 1, column: "PROSES", value: "DONE" }]);
+    // one-cell scope (page slice of 1) with no change -> no PATCH (edit-save no-op)
+    const single = draftFor([rows[0]]);
+    expect(diffPatches([rows[0]], single)).toEqual([]);
+  });
+});
+
+describe("Sosmed Command Center — Content Planner + Add-to-Production", () => {
+  it("SC1 buildPlanPayload produces EXACTLY the 11 declared content_plan columns", () => {
+    const cols = planColumnsFor("content_plan");
+    const payload = buildPlanPayload({
+      judul: "  Launch Reels  ", publish: "2026-10-10", deadlineProduksi: "2026-10-20",
+      pillar: "DuperPedia", format: "Video", platform: "Instagram", pic: "Ejak",
+      brief: "brief", reference: "https://x", priority: "High", statusPlan: "PLANNED",
+    });
+    expect(Object.keys(payload).sort()).toEqual(cols.slice().sort()); // same key set
+    expect(payload["Judul / Ide Konten"]).toBe("Launch Reels"); // trimmed
+    expect(payload["Status Plan"]).toBe("PLANNED");
+    // empty status defaults to IDEA
+    const dflt = buildPlanPayload({ judul: "x", publish: "", deadlineProduksi: "", pillar: "", format: "", platform: "", pic: "", brief: "", reference: "", priority: "", statusPlan: "" });
+    expect(dflt["Status Plan"]).toBe("IDEA");
+  });
+
+  it("SC2 Add-to-Production maps a plan to EXACTLY ONE sosmed row with the right columns", () => {
+    const today = new Date(2026, 8, 21); // 2026-09-21
+    const kode = contentKode(today, 42);
+    expect(kode).toBe("CT-20260921-0042"); // deterministic kode generator
+    const row = buildProductionRow(planRow({ "Deadline Produksi": "20/10/2026", Format: "Video", Platform: "Instagram", PIC: "Ejak", "Judul / Ide Konten": "Launch Reels", Brief: "brief", "Reference Link": "https://r" }), today, kode);
+    const sosmedCols = planColumnsFor("sosmed");
+    expect(Object.keys(row).sort()).toEqual(sosmedCols.slice().sort()); // EXACT sosmed columns
+    expect(row["Kode Konten"]).toBe(kode);
+    expect(row["Tanggal Deadline"]).toBe("20/10/2026");
+    expect(row["Output"]).toBe("Video");
+    expect(row["Konten Pillar"]).toBe("DuperPedia");
+    expect(row["Platform"]).toBe("Instagram");
+    expect(row["PIC"]).toBe("Ejak");
+    expect(row["Judul Konten"]).toBe("Launch Reels");
+    expect(row["Materi Konten"]).toBe("brief");
+    expect(row["LINK COVER"]).toBe("https://r");
+    expect(row["PROSES"]).toBe("PENDING");
+    expect(row["IG"]).toBe(false); expect(row["TIKTOK"]).toBe(false); expect(row["YT"]).toBe(false);
+    // one record (object, not array) — the "ONE record" requirement
+    expect(Array.isArray(row)).toBe(false);
+  });
+
+  it("SC2 duplicate prevention: same kode already in sosmed rows -> Kode collision detected", () => {
+    const today = new Date(2026, 8, 21);
+    const kode = contentKode(today, 7);
+    expect(productionKodeExists([opsRow({ "Kode Konten": "OTHER" })], kode)).toBe(false);
+    expect(productionKodeExists([opsRow({ "Kode Konten": kode })], kode)).toBe(true);
+    // deterministic: same plan row -> same kode (re-push would collide)
+    expect(contentKode(today, 7)).toBe(contentKode(today, 7));
+  });
+
+  it("SC4/SC5 filter rows by PIC and by platform (explorer filters AND global filter)", () => {
+    const rows = [FIXTURE[0], FIXTURE[1], FIXTURE[2]];
+    // PIC filter -> only Hana (FIXTURE[1])
+    const byPic = filterRows(rows, { pics: new Set(["Hana"]), months: new Set(), statuses: new Set(), platforms: new Set(), pillars: new Set(), formats: new Set() });
+    expect(byPic.map((r) => r["Kode Konten"])).toEqual(["K2"]);
+    // platform filter (Both/Instagram/Tiktok)
+    const withPlatform = [opsRow({ Platform: "Instagram" }), opsRow({ "Kode Konten": "K2", Platform: "Tiktok" }), opsRow({ "Kode Konten": "K3", Platform: "Both" })];
+    const byPlat = filterRows(withPlatform, { pics: new Set(), months: new Set(), statuses: new Set(), platforms: new Set(["Tiktok"]), pillars: new Set(), formats: new Set() });
+    expect(byPlat.map((r) => r["Kode Konten"])).toEqual(["K2"]);
+  });
+
+  it("SC6 Expand/fullscreen path: Explorer COLUMN catalog + default columns (code/title/deadline/pic/format/status/platform)", () => {
+    expect(EXPLORER_DEFAULT_COLS).toEqual(["code", "title", "deadline", "pic", "format", "status", "platform"]);
+    expect(COLUMN_DEFS.length).toBe(14); // 7 default + 7 extra
+    // extra columns are present in order
+    expect(COLUMN_DEFS.map((d) => d.key)).toEqual([...EXPLORER_DEFAULT_COLS, "pillar", "process", "ig", "tiktok", "yt", "reference", "notes"]);
   });
 });

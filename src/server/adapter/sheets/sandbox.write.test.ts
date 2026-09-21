@@ -24,16 +24,16 @@ describe("Phase B — sandbox write tests (REAL sandbox)", () => {
     api = buildSheetsApi(cfg);
     source = createSandboxSource(cfg);
     const boot = await buildSandboxSchema(api, SANDBOX_ID, { seedFixtures: true });
-    expect(boot.tabsCreated).toBe(10);
+    expect(boot.tabsCreated).toBe(11);
     expect(boot.fixturesSeeded).toBeGreaterThan(0);
   });
 
-  it("bootstraps the sandbox to the 10 declared tabs; no drift; CRM Status at col 15", async () => {
+  it("bootstraps the sandbox to the 11 declared tabs; no drift; CRM Status at col 15", async () => {
     const boot = await source.bootstrap();
     expect(boot.missingTabs).toEqual([]);
     expect(boot.headerViolations).toEqual([]);
     expect(boot.drift).toBe(false);
-    expect(boot.tabs.length).toBe(10);
+    expect(boot.tabs.length).toBe(11);
     expect(boot.sheets.map((s) => s.title).sort()).toEqual(TAB_ORDER.map((k) => TAB_SCHEMAS[k].tab).sort());
 
     const crmMeta = boot.tabs.find((t) => t.appKey === "crm")!;
@@ -86,6 +86,42 @@ describe("Phase B — sandbox write tests (REAL sandbox)", () => {
     // First seeded website row is DPW-0267 'Uploaded' -> now 'CHECKED'.
     expect(rows[0]["Kode Konten"]).toBe("DPW-0267");
     expect(rows[0]["Status Post"]).toBe("CHECKED");
+  });
+
+  it("content_plan appends + PATCHes against the declared headers (new tab, real)", async () => {
+    const before = (await source.fetchTable("content_plan")).length;
+    // Build a payload with the EXACT 11 declared content_plan columns (buildCellRows parity).
+    const cols = columnsFor("content_plan");
+    const cells = cols.map((c) =>
+      c === "Judul / Ide Konten" ? "CP-e2e-1"
+        : c === "Tanggal Publish" ? "10/10/2026"
+          : c === "Deadline Produksi" ? "20/10/2026"
+            : c === "Content Pillar" ? "DuperPedia"
+              : c === "Format" ? "Video"
+                : c === "Platform" ? "Instagram"
+                  : c === "PIC" ? "Ejak"
+                    : c === "Priority" ? "High"
+                      : c === "Status Plan" ? "APPROVED"
+                        : "",
+    );
+    const app = await source.appendRows("content_plan", [cells]);
+    expect(app.ok).toBe(true);
+    expect(app.affected).toBe(1);
+
+    const rows = await source.fetchTable("content_plan");
+    expect(rows.length).toBe(before + 1);
+    const added = rows.find((r) => r["Judul / Ide Konten"] === "CP-e2e-1");
+    expect(added).toBeDefined();
+    expect(added!["Platform"]).toBe("Instagram");
+    expect(added!["Status Plan"]).toBe("APPROVED");
+    expect(added!["Deadline Produksi"]).toBe("20/10/2026");
+
+    // PATCH one cell by column name (rowIndex = the row's __rowIndex).
+    const rowIndex = typeof added!.__rowIndex === "number" ? added!.__rowIndex as number : -1;
+    const upd = await source.updateCell("content_plan", rowIndex, "Status Plan", "DIPRODUKSI");
+    expect(upd.ok).toBe(true);
+    const after = await source.fetchTable("content_plan");
+    expect(after.find((r) => r["Judul / Ide Konten"] === "CP-e2e-1")!["Status Plan"]).toBe("DIPRODUKSI");
   });
 
   it("clearTable is guarded (refuses without confirm) then clears a tab (real)", async () => {

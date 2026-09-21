@@ -35,17 +35,17 @@ describe("helpers (position → A1, header equality)", () => {
 });
 
 describe("workbook bootstrap / discovery / drift (mocked API)", () => {
-  it("listTabs resolves all 10 tabs with title→gid, no drift for a schema-perfect workbook", async () => {
+  it("listTabs resolves all 11 tabs with title→gid, no drift for a schema-perfect workbook", async () => {
     const api = schemaPerfectApi();
     const client = new GoogleSheetsClient(api, "abc123");
     const res = await client.listTabs();
 
-    expect(res.sheets.length).toBe(10);
+    expect(res.sheets.length).toBe(11);
     expect(res.titleToGid.get(TAB_SCHEMAS.crm.tab)).toBe(5); // crm is #5 in TAB_ORDER
     expect(res.missingTabs).toEqual([]);
     expect(res.headerViolations).toEqual([]);
     expect(res.drift).toBe(false);
-    expect(res.tabs.length).toBe(10);
+    expect(res.tabs.length).toBe(11);
     const crm = res.tabs.find((t) => t.appKey === "crm")!;
     expect(crm.title).toBe("DATABASE NOMOR");
     expect(crm.gid).toBe("5");
@@ -61,7 +61,7 @@ describe("workbook bootstrap / discovery / drift (mocked API)", () => {
     const res = await client.listTabs();
     expect(res.missingTabs).toContain("insight");
     expect(res.drift).toBe(true);
-    expect(res.tabs.length).toBe(9);
+    expect(res.tabs.length).toBe(10);
   });
 
   it("detects header drift against the declared schema", async () => {
@@ -83,6 +83,6 @@ describe("workbook bootstrap / discovery / drift (mocked API)", () => {
     const client = new GoogleSheetsClient(api, "abc123");
     const wb = await client.openWorkbook();
     expect(wb.titleToGid.get("SOSMED")).toBe(1);
-    expect(wb.titleToGid.size).toBe(10);
+    expect(wb.titleToGid.size).toBe(11);
   });
 });

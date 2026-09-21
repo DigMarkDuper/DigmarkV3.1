@@ -3,10 +3,10 @@
  * schema so tests/parity checks are realistic. NEVER targeted at production.
  *
  * Idempotent: deletes every existing sheet (incl. the default 'Sheet1'), then
- * creates the 10 tabs in TAB_ORDER with the declared header rows from
- * schema.ts, optionally seeding a few fixture rows. Confirms the DATABASE NOMOR
- * header places 'Status' as the 15th column (proving header-based, B1-correct
- * mapping).
+   * creates the 11 tabs in TAB_ORDER with the declared header rows from
+   * schema.ts, optionally seeding a few fixture rows. Confirms the DATABASE NOMOR
+   * header places 'Status' as the 15th column (proving header-based, B1-correct
+   * mapping).
  */
 
 import { columnsFor, TAB_ORDER, TAB_SCHEMAS } from "../schema";

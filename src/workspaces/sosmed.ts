@@ -180,6 +180,35 @@ export function deadlineDate(row: Row): Date | null {
   return toDatetime(row["Tanggal Deadline"]);
 }
 
+/**
+ * §4.2 — Data-aware calendar default month. If today's month already holds a
+ * parseable-deadline row, snapshot it to the 1st of today. Otherwise advance to
+ * the deadline month carrying the most rows (earliest wins ties); falls back to
+ * the 1st of today when no deadline can be parsed at all. Pure & deterministic.
+ */
+export function calendarDefaultMonth(rows: Row[], today: Date): Date {
+  const counts = new Map<string, number>();
+  for (const r of rows) {
+    const d = deadlineDate(r);
+    if (!d) continue;
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const todayKey = `${today.getFullYear()}-${today.getMonth()}`;
+  if (counts.has(todayKey)) return new Date(today.getFullYear(), today.getMonth(), 1);
+  let bestKey: string | null = null;
+  let bestCount = -1;
+  for (const [key, n] of counts) {
+    if (n > bestCount || (n === bestCount && bestKey !== null && key < bestKey)) {
+      bestKey = key;
+      bestCount = n;
+    }
+  }
+  if (bestKey === null) return new Date(today.getFullYear(), today.getMonth(), 1);
+  const [year, month] = bestKey.split("-").map(Number);
+  return new Date(year, month, 1);
+}
+
 function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
@@ -664,4 +693,234 @@ export function diffPatches(rows: Row[], draft: Record<number, Record<string, st
     }
   }
   return patches;
+}
+
+/* ---------------------------------------------------------------------------
+ * Social Media Command Center derivations (additive — pure, unit-testable).
+ * Appended after the existing exports; nothing above is modified.
+ * ------------------------------------------------------------------------ */
+
+/** Searchable columns for the Master Content Data EXPLORER (§5.2). */
+const EXPLORER_SEARCH_COLS = [
+  "Kode Konten",
+  "Judul Konten",
+  "Konten Pillar",
+  "Platform",
+  "Output",
+  "PIC",
+] as const;
+
+/**
+ * §5.2 — Case-insensitive substring search across Kode/Titel/Pillar/Platform/
+ * Format/PIC. Empty/whitespace query returns all rows unchanged.
+ */
+export function searchContents(rows: Row[], q: string): Row[] {
+  const needle = q.trim().toLowerCase();
+  if (needle === "") return rows;
+  return rows.filter((r) =>
+    EXPLORER_SEARCH_COLS.some((c) => str(r[c]).trim().toLowerCase().includes(needle)),
+  );
+}
+
+/** §5.4.1 — deadline bucket classifier for the Deadline single-select. */
+export type DeadlineBucket = "ALL" | "overdue" | "dueToday" | "dueThisWeek" | "future" | "completed";
+
+/**
+ * §5.4.1 — Mirror the deadlineMonitor buckets one-to-one. `today` is the
+ * start-of-day reference. Completed (DONE) wins; overdue/due-today/due-week
+ * only apply to not-done rows; unparseable deadlines fall through to "ALL".
+ */
+export function deadlineBucket(row: Row, today: Date): DeadlineBucket {
+  if (isDone(row)) return "completed";
+  const d = deadlineDate(row);
+  if (d === null) return "ALL";
+  const todayStart = startOfDay(today);
+  const weekEnd = new Date(todayStart.getFullYear(), todayStart.getMonth(), todayStart.getDate() + 7);
+  if (d < todayStart) return "overdue";
+  if (sameDay(d, todayStart)) return "dueToday";
+  if (d <= weekEnd) return "dueThisWeek";
+  return "future";
+}
+
+/**
+ * §5.3 — Page-window labels. Always includes 1, totalPages, the current page,
+ * and one page on each side; gaps collapse to "…". Literal labels per §5.3.
+ */
+export type PageItem = number | "…";
+export function paginationWindow(page: number, totalPages: number): PageItem[] {
+  const total = Math.max(1, totalPages);
+  const clamped = Math.max(1, Math.min(page, total));
+  if (total === 1) return [1];
+  const window = new Set<number>([1, total, clamped - 1, clamped, clamped + 1]);
+  const sorted = [...window].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
+  const out: PageItem[] = [];
+  let prev = 0;
+  for (const p of sorted) {
+    if (prev && p - prev > 1) out.push("…");
+    out.push(p);
+    prev = p;
+  }
+  return out;
+}
+
+export interface CalendarCell {
+  /** Day-of-month number (1..length of month). For outside cells, the day shown (may be from adjacent month). */
+  day: number;
+  /** True when this cell belongs to the previous/next month (greyed). */
+  isOutside: boolean;
+  /** True when this cell is `today`. */
+  isToday: boolean;
+  /** Deadline rows landing on this day. */
+  rows: Row[];
+}
+
+/**
+ * §4.2 — Build the 7-wide month grid for (year, month). Leading blanks offset
+ * the first day from Monday; out-of-month cells render greyed. Rows with a
+ * parseable deadline equal to the cell day are attached.
+ */
+export function calendarCells(rows: Row[], year: number, month: number, today: Date): CalendarCell[] {
+  const first = new Date(year, month, 1);
+  const firstDow = (first.getDay() + 6) % 7; // Monday=0
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const prevMonthDays = new Date(year, month, 0).getDate();
+  const cells: CalendarCell[] = [];
+
+  // Leading blanks from the previous month.
+  for (let i = firstDow - 1; i >= 0; i--) {
+    cells.push({ day: prevMonthDays - i, isOutside: true, isToday: false, rows: [] });
+  }
+
+  // Attach rows to their deadline day.
+  const byDay = new Map<number, Row[]>();
+  for (const r of rows) {
+    const d = deadlineDate(r);
+    if (d && d.getFullYear() === year && d.getMonth() === month) {
+      const key = d.getDate();
+      if (!byDay.has(key)) byDay.set(key, []);
+      byDay.get(key)!.push(r);
+    }
+  }
+
+  const todayStart = startOfDay(today);
+  for (let day = 1; day <= daysInMonth; day++) {
+    cells.push({
+      day,
+      isOutside: false,
+      isToday: sameDay(new Date(year, month, day), todayStart),
+      rows: byDay.get(day) ?? [],
+    });
+  }
+
+  // Trailing blanks to complete the last week row (keep grid 7-wide even).
+  while (cells.length % 7 !== 0) {
+    cells.push({ day: cells.length + 1 - firstDow - daysInMonth, isOutside: true, isToday: false, rows: [] });
+  }
+  return cells;
+}
+
+/**
+ * §6.3 — Kode generator. Deterministic per plan row so a re-push produces the
+ * same Kode and the dedupe scan catches it.
+ */
+export function contentKode(date: Date, planRowIndex: number): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `CT-${y}${m}${d}-${String(planRowIndex).padStart(4, "0")}`;
+}
+
+/**
+ * §6.3 — Build the ONE appended sosmed row for an approved plan. Keys are the
+ * exact declared sosmed schema columns; empty strings for unset.
+ */
+export function buildProductionRow(plan: Row, today: Date, todayKode: string): Record<string, unknown> {
+  return {
+    "Kode Konten": todayKode,
+    "Tanggal Deadline": str(plan["Deadline Produksi"]),
+    "Tanggal Posting": "",
+    "Output": str(plan["Format"]),
+    "Konten Pillar": str(plan["Content Pillar"]),
+    "Platform": str(plan["Platform"]),
+    "PIC": str(plan["PIC"]),
+    "Judul Konten": str(plan["Judul / Ide Konten"]),
+    "Materi Konten": str(plan["Brief"]),
+    "  CAPTION ": "",
+    "LINK COVER": str(plan["Reference Link"]),
+    "PROSES": "PENDING",
+    "LINK KONTEN JADI": "",
+    "IG": false,
+    "TIKTOK": false,
+    "YT": false,
+  };
+}
+
+/**
+ * §6.3.2 — Durable dedupe: true when the generated Kode already exists in the
+ * current sosmed rows (self-evident collision survives page reloads).
+ */
+export function productionKodeExists(rows: Row[], kode: string): boolean {
+  return rows.some((r) => str(r["Kode Konten"]).trim() === kode);
+}
+
+/** §5.5 — Explorer column catalog (key → header → source column). */
+export interface ExplorerColumnDef {
+  key: string;
+  header: string;
+  source: string;
+}
+
+const DEFAULT_KEYS = ["code", "title", "deadline", "pic", "format", "status", "platform"] as const;
+const EXTRA_KEYS = ["pillar", "process", "ig", "tiktok", "yt", "reference", "notes"] as const;
+
+export const EXPLORER_DEFAULT_COLS: readonly string[] = DEFAULT_KEYS as readonly string[];
+export const EXPLORER_EXTRA_COLS: readonly string[] = EXTRA_KEYS as readonly string[];
+
+export const COLUMN_DEFS: ExplorerColumnDef[] = [
+  { key: "code", header: "Kode", source: "Kode Konten" },
+  { key: "title", header: "Content Title", source: "Judul Konten" },
+  { key: "deadline", header: "Deadline", source: "Tanggal Deadline" },
+  { key: "pic", header: "PIC", source: "PIC" },
+  { key: "format", header: "Format", source: "Output" },
+  { key: "status", header: "Status", source: "PROSES" },
+  { key: "platform", header: "Platform", source: "Platform" },
+  { key: "pillar", header: "Content Pillar", source: "Konten Pillar" },
+  { key: "process", header: "Process", source: "PROSES" },
+  { key: "ig", header: "IG", source: "IG" },
+  { key: "tiktok", header: "TikTok", source: "TIKTOK" },
+  { key: "yt", header: "YouTube", source: "YT" },
+  { key: "reference", header: "Reference", source: "LINK COVER" },
+  { key: "notes", header: "Notes", source: "Materi Konten" },
+];
+
+/**
+ * §4.1 — Build the content_plan append payload from the planner form. Keys are
+ * the exact 11 declared content_plan columns (§1.1).
+ */
+export function buildPlanPayload(form: {
+  judul: string;
+  publish: string;
+  deadlineProduksi: string;
+  pillar: string;
+  format: string;
+  platform: string;
+  pic: string;
+  brief: string;
+  reference: string;
+  priority: string;
+  statusPlan: string;
+}): Record<string, unknown> {
+  return {
+    "Judul / Ide Konten": form.judul.trim(),
+    "Tanggal Publish": form.publish.trim(),
+    "Deadline Produksi": form.deadlineProduksi.trim(),
+    "Content Pillar": form.pillar.trim(),
+    "Format": form.format.trim(),
+    "Platform": form.platform.trim(),
+    "PIC": form.pic.trim(),
+    "Brief": form.brief.trim(),
+    "Reference Link": form.reference.trim(),
+    "Priority": form.priority.trim(),
+    "Status Plan": form.statusPlan.trim() === "" ? "IDEA" : form.statusPlan.trim(),
+  };
 }

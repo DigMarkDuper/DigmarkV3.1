@@ -4,12 +4,12 @@ import { GoogleSheetsSourcePlaceholder, type SheetSource } from "./source";
 
 // Column counts are asserted from DATA_CONTRACT.md §2 (verified headers).
 describe("adapter schema parity (DATA_CONTRACT §2)", () => {
-  it("covers all 10 app keys from SHEETS", () => {
+  it("covers all 11 app keys from SHEETS", () => {
     expect(TAB_ORDER).toEqual([
       "sosmed", "website", "insight", "wa_admin", "crm", "dm_sosmed",
-      "ads_tiktok", "ads_meta", "mekari", "interview",
+      "ads_tiktok", "ads_meta", "mekari", "interview", "content_plan",
     ]);
-    expect(Object.keys(TAB_SCHEMAS).length).toBe(10);
+    expect(Object.keys(TAB_SCHEMAS).length).toBe(11);
   });
 
   it("sosmed -> SOSMED (16 cols)", async () => {
@@ -56,6 +56,16 @@ describe("adapter schema parity (DATA_CONTRACT §2)", () => {
   it("columnsFor returns declared headers / [] for unknown key", () => {
     expect(columnsFor("wa_admin").length).toBe(14);
     expect(columnsFor("nope")).toEqual([]);
+  });
+
+  it("content_plan -> CONTENT_PLAN (11 exact cols, §1.1)", () => {
+    const s = TAB_SCHEMAS.content_plan;
+    expect(s.tab).toBe("CONTENT_PLAN");
+    expect(s.columns).toEqual([
+      "Judul / Ide Konten", "Tanggal Publish", "Deadline Produksi",
+      "Content Pillar", "Format", "Platform", "PIC", "Brief",
+      "Reference Link", "Priority", "Status Plan",
+    ]);
   });
 });
 
