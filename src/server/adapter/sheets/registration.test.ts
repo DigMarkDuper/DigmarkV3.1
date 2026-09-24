@@ -13,7 +13,9 @@ function regValues(tsValue: unknown, partial: unknown[] = []): unknown[] {
   row[25] = "Sudah"; // Penjadwalan Interview
   row[27] = "Sudah"; // Interview
   row[28] = "Ya"; // Hasil Interview
+  row[30] = "Sudah"; // Pengiriman Juknis
   row[31] = "Sudah"; // Pembayaran
+  row[REGISTRATION_COLUMNS.indexOf("PIC")] = "ONLINE"; // PIC
   for (let i = 0; i < partial.length; i++) {
     if (partial[i] !== undefined) row[i] = partial[i];
   }
@@ -21,7 +23,7 @@ function regValues(tsValue: unknown, partial: unknown[] = []): unknown[] {
 }
 
 describe("registration read path + source (FakeApi)", () => {
-  it("readRegistrationTable normalizes rows against the 35 live columns", async () => {
+  it("readRegistrationTable normalizes rows against the 36 live columns", async () => {
     const api = new FakeApi([{
       title: REGISTRATION_TAB,
       gid: 1,
@@ -35,6 +37,7 @@ describe("registration read path + source (FakeApi)", () => {
     expect(rows[0]["Penjadwalan Interview"]).toBe("Sudah");
     expect(rows[0]["Hasil Interview\n(Diterima/Tidak)"]).toBe("Ya");
     expect(rows[0].Timestamp).toBe("1/13/2026 16:35:42");
+    expect(rows[0]["PIC"]).toBe("ONLINE");
   });
 
   it("graceful empty when the registration tab is missing", async () => {

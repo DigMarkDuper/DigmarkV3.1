@@ -9,7 +9,7 @@
  * (the brief's "[pertanyaan medis panjang]" / "[pertanyaan patah tulang]" are
  * placeholders that do NOT exist in the live header), plus a trailing
  * "Keterangan Tambahan" ("Keterangan" and "Keterangan Tambahan" both exist) —
- * 35 columns total.
+ * 36 columns total (PIC added, verified 2026-09).
  */
 import type { TabSchema } from "./schema";
 
@@ -51,6 +51,7 @@ export const REGISTRATION_COLUMNS: string[] = [
   "Pengiriman Juknis",
   "Pembayaran",
   "Invite Grup Pendaftar",
+  "PIC",
   "Keterangan",
   "Keterangan Tambahan",
 ];

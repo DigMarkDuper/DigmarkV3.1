@@ -13,7 +13,7 @@
  * tests can assert derived counts via react-dom/server.
  */
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import type { Row } from "@/server/adapter/source";
 import { DataTable } from "@/components/grid/DataTable";
 import { Divider } from "@/components/ui/Divider";
@@ -24,7 +24,8 @@ import { MetricRow } from "@/components/metrics/MetricRow";
 import { MetricCard } from "@/components/metrics/MetricCard";
 import { ChartContainer } from "@/components/charts/ChartContainer";
 import { EmptyState } from "@/components/sections/EmptyState";
-import { PALETTE } from "@/components/ui-common";
+import { PALETTE, formatCount, formatPercent } from "@/components/ui-common";
+import { patchJson } from "@/lib/api-client";
 import {
   deriveWaAdminStats,
   toCsv,
@@ -43,7 +44,21 @@ import {
   type NeedsCategory,
   type SourceRegStat,
   type RegistrationMatch,
+  type PicStat,
 } from "@/workspaces/registration";
+import {
+  WA_ADMIN_PAYLOAD_KEYS,
+  STATUS_COLUMN,
+  PIC_FALLBACK,
+  SUMBER_FALLBACK,
+  KATEGORI_FALLBACK,
+  STATUS_FALLBACK,
+  distinctCellValues,
+  type WaAdminFormValues,
+  type WaAdminFieldErrors,
+  type WaAdminFieldName,
+} from "@/workspaces/waAdminForm";
+import { rowToFormValue, changedFieldValues, validateWaAdminEdit } from "@/workspaces/waAdminEdit";
 import { WaAdminDataForm } from "@/components/ops/WaAdminDataForm";
 import { WaAdminEditData } from "@/components/ops/WaAdminEditData";
 
@@ -643,12 +658,132 @@ function SourcePanel({ sources }: { sources: SourceRegStat[] }) {
   );
 }
 
-/** 3b — Pendaftar Terbaru (compact 6-col table + per-row expand, one open). */
-function RecentTable({ recent, matches }: {
+/* --------------------------------------------------------------------------
+ * BAND 3 — Pendaftar Terbaru (full-width, expandable, per-row inline edit)
+ * Local field primitives + Status chip + ✏️ Ubah (PATCH per changed field).
+ * ------------------------------------------------------------------------ */
+const FIELD_BASE =
+  "w-full h-10 px-3 rounded-[12px] bg-surface-input border border-border text-ink " +
+  "placeholder:text-muted/70 focus:border-brand focus:shadow-[var(--dm-shadow-xs)] " +
+  "focus:ring-2 focus:ring-brand focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
+const FIELD_ERROR = " border-danger focus:border-danger focus:ring-danger";
+
+function ErrText({ error }: { error?: string }) {
+  if (!error) return null;
+  return (
+    <span role="alert" data-error className="text-[0.78rem] font-semibold text-danger">
+      {error}
+    </span>
+  );
+}
+
+function FieldWrap({
+  label,
+  error,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  error?: string;
+  htmlFor?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={htmlFor} className="text-[0.82rem] font-semibold text-muted">
+        {label}
+      </label>
+      {children}
+      <ErrText error={error} />
+    </div>
+  );
+}
+
+function InlineTextField({
+  id,
+  label,
+  error,
+  value,
+  placeholder,
+  onInput,
+}: {
+  id: string;
+  label: string;
+  error?: string;
+  value: string;
+  placeholder?: string;
+  onInput: (v: string) => void;
+}) {
+  const cls = `${FIELD_BASE}${error ? FIELD_ERROR : ""}`;
+  return (
+    <FieldWrap label={label} error={error} htmlFor={id}>
+      <input id={id} type="text" value={value} placeholder={placeholder}
+        onChange={(e) => onInput(e.target.value)} className={cls} />
+    </FieldWrap>
+  );
+}
+
+function InlineSelectField({
+  id,
+  label,
+  error,
+  value,
+  options,
+  onSelect,
+}: {
+  id: string;
+  label: string;
+  error?: string;
+  value: string;
+  options: string[];
+  onSelect: (v: string) => void;
+}) {
+  const cls = `${FIELD_BASE} appearance-none pr-9${error ? FIELD_ERROR : ""}`;
+  return (
+    <FieldWrap label={label} error={error} htmlFor={id}>
+      <span className="relative">
+        <select id={id} value={value} onChange={(e) => onSelect(e.target.value)} className={cls}>
+          <option value="" disabled>— Pilih —</option>
+          {options.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+        <span aria-hidden className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted">▾</span>
+      </span>
+    </FieldWrap>
+  );
+}
+
+/** Live-distinct first, fallback second, stored legacy value kept as extra option. */
+function inlOpts(live: string[], stored: string | undefined): string[] {
+  const out = [...live];
+  const s = (stored ?? "").trim();
+  if (s && !out.includes(s)) out.push(s);
+  return out;
+}
+
+const KEY = WA_ADMIN_PAYLOAD_KEYS;
+const SUCCESS_EDIT_COPY = "Data berhasil diperbarui.";
+const ERROR_EDIT_COPY = "Data gagal diperbarui. Silakan coba lagi.";
+
+function RecentTable({ recent, matches, rows, onRefresh }: {
   recent: Row[];
   matches: Map<Row, RegistrationMatch>;
+  rows: Row[];
+  onRefresh?: () => void;
 }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingRowIndex, setEditingRowIndex] = useState(-1);
+  const [preFill, setPreFill] = useState<WaAdminFormValues | null>(null);
+  const [editValues, setEditValues] = useState<WaAdminFormValues | null>(null);
+  const [errors, setErrors] = useState<WaAdminFieldErrors>({});
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<{ kind: "success" | "error"; msg: string } | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   /** Six detail groups (spec §3b) mapped to the actual registration columns. */
   function detailGroups(r: Row): { group: string; fields: [string, unknown][] }[] {
@@ -709,72 +844,215 @@ function RecentTable({ recent, matches }: {
     ];
   }
 
+  const closeEdit = () => {
+    setEditingIndex(null);
+    setEditingRowIndex(-1);
+    setPreFill(null);
+    setEditValues(null);
+    setErrors({});
+  };
+
+  const openEdit = (i: number, m: RegistrationMatch) => {
+    const pre = rowToFormValue(m.waRow);
+    setPreFill(pre);
+    setEditValues(pre);
+    setErrors({});
+    setEditingIndex(i);
+    setEditingRowIndex(Number(m.waRow.__rowIndex));
+    setOpenIndex(i);
+  };
+
+  const setField = (field: WaAdminFieldName) => (v: string) =>
+    setEditValues((cur) => (cur ? { ...cur, [field]: v } : cur));
+
+  const toggleRow = (i: number) => {
+    if (editingIndex !== null) closeEdit(); // escape discards the draft
+    setOpenIndex((cur) => (cur === i ? null : i));
+  };
+
+  const finishSuccess = async () => {
+    setOpenIndex(null);
+    closeEdit();
+    onRefresh?.();
+    setToast({ kind: "success", msg: SUCCESS_EDIT_COPY });
+  };
+
+  const handleSave = async (e: FormEvent) => {
+    e.preventDefault();
+    if (saving || !preFill || !editValues || editingRowIndex < 0) return;
+    const errs = validateWaAdminEdit(editValues);
+    setErrors(errs);
+    if (Object.keys(errs).length) return;
+    const changed = changedFieldValues(preFill, editValues);
+    if (changed.length === 0) {
+      await finishSuccess();
+      return;
+    }
+    setSaving(true);
+    try {
+      for (const { column, value } of changed) {
+        await patchJson("/api/tables/wa_admin", { rowIndex: editingRowIndex, column, value });
+      }
+      setSaving(false);
+      await finishSuccess();
+    } catch {
+      setSaving(false);
+      setToast({ kind: "error", msg: ERROR_EDIT_COPY });
+    }
+  };
+
+  const picOptions = inlOpts(distinctCellValues(rows, KEY.pic, PIC_FALLBACK), editValues?.pic);
+  const sumberOptions = inlOpts(distinctCellValues(rows, KEY.sumber, SUMBER_FALLBACK), editValues?.sumber);
+  const kategoriOptions = inlOpts(distinctCellValues(rows, KEY.kategori, KATEGORI_FALLBACK), editValues?.kategori);
+  const statusOptions = inlOpts(distinctCellValues(rows, STATUS_COLUMN, STATUS_FALLBACK), editValues?.status);
+
   return (
     <section className="rounded-[18px] border border-border bg-surface p-4 backdrop-blur-[8px] saturate-[140%] shadow-[0_6px_18px_rgba(0,88,163,0.08)]">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-        <h4 className="text-[1.02rem] font-extrabold tracking-[-0.01em] text-ink">Pendaftar Terbaru</h4>
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-3">
+          <h4 className="text-[1.02rem] font-extrabold tracking-[-0.01em] text-ink">Pendaftar Terbaru</h4>
           <span className="rounded-full bg-brand/10 px-2.5 py-0.5 text-[0.8rem] font-bold text-brand-hover">{recent.length}</span>
           <span className="text-[0.72rem] text-muted">Klik baris untuk melihat detail data.</span>
         </div>
+        <span className="rounded-full border border-muted/40 px-2.5 py-0.5 text-[0.72rem] font-medium text-muted">
+          ✏️ Ubah di baris yang cocok WA Admin.
+        </span>
       </div>
       {recent.length === 0 ? (
-        <div className="h-[400px]">
+        <div className="max-h-[520px]">
           <EmptyState title="Belum ada pendaftar pada tahun ini." hint="Pilih tahun lain atau Semua Tahun." />
         </div>
       ) : (
-        <div className="h-[400px] overflow-y-auto rounded-[14px] border border-divider">
-          <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto] gap-3 border-b border-divider bg-white/90 px-3 py-2 text-[0.72rem] font-bold uppercase tracking-[0.02em] text-muted backdrop-blur-[8px]">
+        <div className="max-h-[520px] overflow-y-auto rounded-[14px] border border-divider">
+          <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_auto_auto] gap-4 border-b border-divider bg-white/90 px-3 py-2 text-[0.72rem] font-bold uppercase tracking-[0.02em] text-muted backdrop-blur-[8px]">
             <span>Nama</span>
             <span>WhatsApp</span>
             <span>Source</span>
             <span>Interview</span>
             <span>Hasil</span>
             <span>Pembayaran</span>
+            <span>Status</span>
             <span aria-hidden>▾</span>
           </div>
           {recent.map((r, i) => {
             const open = openIndex === i;
             const m = matches.get(r);
+            const nama = cellOrDash(r["Nama Lengkap"]);
+            const wa = cellOrDash(r["Nomor Whatsapp"] || r["Nomor Handphone"] || "");
             return (
               <div key={i} className="border-b border-divider">
-                <button
-                  type="button"
-                  onClick={() => setOpenIndex(open ? null : i)}
-                  aria-expanded={open}
-                  className="grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto] gap-3 px-3 py-2 text-left text-[0.84rem] transition-colors hover:bg-brand/5"
-                >
-                  <span className="min-w-0 truncate text-ink" title={String(r["Nama Lengkap"] ?? "")}>{cellOrDash(r["Nama Lengkap"])}</span>
-                  <span className="min-w-0 truncate text-muted" title={String(r["Nomor Whatsapp"] ?? "")}>{cellOrDash(r["Nomor Whatsapp"] || r["Nomor Handphone"] || "")}</span>
-                  <span className="min-w-0 truncate text-muted" title={String(r["MENGETAHUI DUTA PERSADA DARI"] ?? "")}>{cellOrDash(r["MENGETAHUI DUTA PERSADA DARI"])}</span>
-                  <span className="text-ink">{cellOrDash(r["Interview"])}</span>
-                  <span className="text-ink">{cellOrDash(r["Hasil Interview\n(Diterima/Tidak)"])}</span>
-                  <span className="text-ink">{cellOrDash(r["Pembayaran"])}</span>
-                  <span aria-hidden className="shrink-0 text-[0.72rem] text-muted">{open ? "▾" : "▸"}</span>
-                </button>
-                {open ? (
-                  <div className="mt-1.5 grid grid-cols-2 gap-x-6 gap-y-3 rounded-[12px] border border-divider bg-white/60 px-3 py-2.5 md:grid-cols-3">
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_auto_auto] items-center gap-4">
+                  <button
+                    type="button"
+                    onClick={() => toggleRow(i)}
+                    aria-expanded={open}
+                    aria-controls={open ? `recent-detail-${i}` : undefined}
+                    disabled={saving}
+                    className="col-span-7 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_auto] items-center gap-4 px-3 py-2 text-left text-[0.84rem] transition-colors hover:bg-brand/5 focus-visible:bg-brand/10 focus-visible:outline-none"
+                  >
+                    <span className="min-w-0 truncate text-ink" title={String(r["Nama Lengkap"] ?? "")}>{nama}</span>
+                    <span className="min-w-0 truncate text-muted" title={String(r["Nomor Whatsapp"] ?? "")}>{wa}</span>
+                    <span className="min-w-0 truncate text-muted" title={String(r["MENGETAHUI DUTA PERSADA DARI"] ?? "")}>{cellOrDash(r["MENGETAHUI DUTA PERSADA DARI"])}</span>
+                    <span className="text-ink">{cellOrDash(r["Interview"])}</span>
+                    <span className="text-ink">{cellOrDash(r["Hasil Interview\n(Diterima/Tidak)"])}</span>
+                    <span className="text-ink">{cellOrDash(r["Pembayaran"])}</span>
+                    <span aria-hidden>
+                      {m ? (
+                        <span className="rounded-full px-2.5 py-0.5 text-[0.78rem] font-bold"
+                          style={{ backgroundColor: "rgba(34,160,107,0.12)", color: PALETTE.success }}>
+                          ✓ Terdaftar
+                        </span>
+                      ) : (
+                        <span title="Belum cocok di WA Admin. Nama akan dicocokkan otomatis." className="rounded-full border border-muted/40 px-2.5 py-0.5 text-[0.72rem] font-medium text-muted">
+                          Ambar
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                  <div className="flex items-center justify-end gap-1.5 pr-3">
+                    <span className="sr-only">{m ? "✓ Terdaftar" : "Ambar"}</span>
                     {m ? (
-                      <span
-                        className="col-span-2 rounded-full px-2.5 py-0.5 text-[0.78rem] font-bold"
-                        style={{ backgroundColor: "rgba(34,160,107,0.12)", color: PALETTE.success }}
+                      <Button
+                        variant="ghost"
+                        disabled={saving}
+                        onClick={() => openEdit(i, m)}
+                        ariaLabel={`Ubah data WA Admin untuk ${nama}`}
+                        className="shrink-0 px-2.5 py-1 text-[0.82rem] font-semibold"
                       >
-                        ✓ Terdaftar: {m.stageLabel}
-                      </span>
+                        ✏️ Ubah
+                      </Button>
                     ) : null}
-                    {detailGroups(r).map((g) => (
-                      <div key={g.group} className="rounded-[10px] border border-divider bg-white/40 p-2">
-                        <p className="mb-1 text-[0.72rem] font-bold uppercase tracking-[0.04em] text-muted">{g.group}</p>
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 md:grid-cols-3 md:gap-x-6">
-                          {g.fields.map(([label, val], j) => (
-                            <div key={j} className="min-w-0">
-                              <p className="text-[0.68rem] uppercase text-muted">{label}</p>
-                              <p className="truncate text-[0.82rem] font-semibold text-ink" title={String(val ?? "")}>{cellOrDash(val)}</p>
-                            </div>
-                          ))}
+                    <button
+                      type="button"
+                      onClick={() => toggleRow(i)}
+                      disabled={saving}
+                      aria-expanded={open}
+                      aria-controls={open ? `recent-detail-${i}` : undefined}
+                      aria-label={open ? `Tutup detail baris ${i + 1} · ${nama}` : `Buka detail baris ${i + 1} · ${nama}`}
+                      className="shrink-0 text-[0.72rem] text-muted"
+                    >
+                      <span aria-hidden>{open ? "▾" : "▸"}</span>
+                    </button>
+                  </div>
+                </div>
+                {open ? (
+                  <div id={`recent-detail-${i}`} role="region" aria-label={`Detail baris ${i + 1} · ${nama}`} className="mt-1.5 space-y-3">
+                    {editingIndex === i && m ? (
+                      <div className="rounded-[14px] border border-brand/30 bg-white/70 px-4 py-3">
+                        <div className="mb-2 flex flex-wrap items-center gap-3">
+                          <h5 className="text-[0.9rem] font-extrabold text-ink">✏️ Ubah Data WA Admin</h5>
+                          <span className="rounded-full bg-brand/10 px-2.5 py-0.5 text-[0.78rem] font-bold text-brand-hover">
+                            Baris #{editingRowIndex + 1} · WA ADMIN REPORT
+                          </span>
                         </div>
+                        <p id={`recent-edit-hint-${i}`} className="text-[0.8rem] text-muted">
+                          Ubah nilai yang ingin diubah. Nilai yang tidak diubah tidak akan dikirim. Menyimpan menulis per-kolom ke WA Admin.
+                        </p>
+                        <form noValidate onSubmit={handleSave} aria-describedby={`recent-edit-hint-${i}`}>
+                          <div className="mt-3 grid grid-cols-2 items-end gap-x-4 gap-y-3 md:grid-cols-3">
+                            <InlineTextField id={`edit-nama-${i}`} label="Nama" value={editValues?.nama ?? ""} onInput={setField("nama")} error={errors.nama} />
+                            <InlineTextField id={`edit-nohp-${i}`} label="No Hp" value={editValues?.noHp ?? ""} onInput={setField("noHp")} error={errors.noHp} />
+                            <InlineSelectField id={`edit-pic-${i}`} label="PIC" value={editValues?.pic ?? ""} onSelect={setField("pic")} options={picOptions} error={errors.pic} />
+                            <InlineSelectField id={`edit-sumber-${i}`} label="Sumber" value={editValues?.sumber ?? ""} onSelect={setField("sumber")} options={sumberOptions} error={errors.sumber} />
+                            <InlineSelectField id={`edit-kategori-${i}`} label="Kategori" value={editValues?.kategori ?? ""} onSelect={setField("kategori")} options={kategoriOptions} error={errors.kategori} />
+                            <InlineSelectField id={`edit-status-${i}`} label="Status" value={editValues?.status ?? ""} onSelect={setField("status")} options={statusOptions} error={errors.status} />
+                          </div>
+                          <div className="mt-3 flex items-center justify-end gap-3">
+                            <Button variant="ghost" type="button" disabled={saving} onClick={closeEdit}>Batal</Button>
+                            <Button variant="primary" type="submit" disabled={saving}>
+                              {saving ? "Menyimpan…" : "Simpan Perubahan"}
+                            </Button>
+                          </div>
+                        </form>
                       </div>
-                    ))}
+                    ) : null}
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-[12px] border border-divider bg-white/60 px-3 py-2.5 md:grid-cols-3">
+                      {m ? (
+                        <span
+                          className="col-span-2 rounded-full px-2.5 py-0.5 text-[0.78rem] font-bold"
+                          style={{ backgroundColor: "rgba(34,160,107,0.12)", color: PALETTE.success }}
+                        >
+                          ✓ Terdaftar: {m.stageLabel}
+                        </span>
+                      ) : (
+                        <span className="col-span-2 rounded-full border border-muted/40 px-2.5 py-0.5 text-[0.72rem] font-medium text-muted">
+                          Ambar · belum cocok di WA Admin
+                        </span>
+                      )}
+                      {detailGroups(r).map((g) => (
+                        <div key={g.group} className="rounded-[10px] border border-divider bg-white/40 p-2">
+                          <p className="mb-1 text-[0.72rem] font-bold uppercase tracking-[0.04em] text-muted">{g.group}</p>
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-1 md:grid-cols-3 md:gap-x-6">
+                            {g.fields.map(([label, val], j) => (
+                              <div key={j} className="min-w-0">
+                                <p className="text-[0.68rem] uppercase text-muted">{label}</p>
+                                <p className="truncate text-[0.82rem] font-semibold text-ink" title={String(val ?? "")}>{cellOrDash(val)}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : null}
               </div>
@@ -782,7 +1060,115 @@ function RecentTable({ recent, matches }: {
           })}
         </div>
       )}
+      {toast ? (
+        <div
+          role="status"
+          className="fixed bottom-6 right-6 z-[80] flex items-center gap-2 rounded-[14px] border px-4 py-3 text-[0.86rem] font-semibold shadow-[var(--dm-shadow-lift)]"
+          style={
+            toast.kind === "success"
+              ? { backgroundColor: "rgba(34,160,107,0.12)", borderColor: PALETTE.success, color: PALETTE.success }
+              : { backgroundColor: "rgba(214,69,80,0.12)", borderColor: PALETTE.danger, color: PALETTE.danger }
+          }
+        >
+          <span aria-hidden>{toast.kind === "success" ? "✓" : "❌"}</span>
+          {toast.msg}
+        </div>
+      ) : null}
     </section>
+  );
+}
+
+/* --------------------------------------------------------------------------
+ * BAND 5 — Analisis Per PIC (table + pure-SVG grouped bar chart).
+ * ------------------------------------------------------------------------ */
+function PicTable({ stats }: { stats: PicStat[] }) {
+  if (stats.length === 0) {
+    return (
+      <section className="rounded-[18px] border border-border bg-surface p-2 backdrop-blur-[8px] saturate-[140%] shadow-[0_6px_18px_rgba(0,88,163,0.08)]">
+        <div className="h-[400px]">
+          <EmptyState title="Belum ada data per PIC." hint="Belum ada nama ditugaskan ke PIC dalam WA ADMIN REPORT." icon="👥" />
+        </div>
+      </section>
+    );
+  }
+  const rowCls = "grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)] gap-4";
+  return (
+    <section className="rounded-[18px] border border-border bg-surface p-2 backdrop-blur-[8px] saturate-[140%] shadow-[0_6px_18px_rgba(0,88,163,0.08)]">
+      <div className="max-h-[420px] overflow-y-auto rounded-[14px] border border-divider">
+        <div className={`${rowCls} sticky top-0 z-10 border-b border-divider bg-white/90 px-3 py-2 text-[0.72rem] font-bold uppercase tracking-[0.02em] text-muted backdrop-blur-[8px]`}>
+          <span>PIC</span>
+          <span>Total Nama Ditugaskan</span>
+          <span>Sudah Bayar</span>
+          <span>Belum Bayar</span>
+          <span>% Pembayaran</span>
+        </div>
+        {stats.map((s) => {
+          const good = s.pct >= 50;
+          const barColor = good ? PALETTE.success : PALETTE.warning;
+          return (
+            <div key={s.pic} className={`${rowCls} px-3 py-2.5 text-[0.84rem] transition-colors hover:bg-brand/5`}>
+              <span className="min-w-0 truncate font-semibold text-ink" title={s.pic}>{s.pic}</span>
+              <span className="font-bold text-ink">{formatCount(s.total)}</span>
+              <span className="font-semibold text-success">{formatCount(s.sudah)}</span>
+              <span className={s.belum === 0 ? "font-semibold text-muted" : "font-semibold text-warning"}>{formatCount(s.belum)}</span>
+              <span className="min-w-[120px]">
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 w-[72px] overflow-hidden rounded-full" style={{ backgroundColor: PALETTE.grid }}>
+                    <div className="h-full rounded-full" style={{ width: `${s.pct}%`, backgroundColor: barColor }} />
+                  </div>
+                  <span className="w-12 text-right text-[0.84rem] font-extrabold" style={{ color: barColor }}>
+                    {formatPercent(s.pct / 100, true)}
+                  </span>
+                </div>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function PicChart({ stats }: { stats: PicStat[] }) {
+  const W = 680;
+  const n = stats.length;
+  const H = n === 0 ? 48 : 48 + n * 56;
+  const max = n ? Math.max(...stats.map((s) => s.total)) : 1;
+  const band = W - 296;
+  return (
+    <ChartContainer data={stats} heightClass="h-[420px]" label="Pembayaran per PIC">
+      <div className="h-full overflow-y-auto pr-1">
+        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Bar chart: pembayaran per PIC (sudah vs belum)" className="h-auto w-full">
+          <g fontSize="11" fill={PALETTE.muted}>
+            <rect x={132} y={14} width={10} height={10} rx={2} fill={PALETTE.success} />
+            <text x={146} y={22}>Sudah Bayar</text>
+            <rect x={250} y={14} width={10} height={10} rx={2} fill={PALETTE.warning} />
+            <text x={264} y={22}>Belum Bayar</text>
+            <rect x={360} y={14} width={10} height={10} rx={2} fill={PALETTE.catBlue} opacity={0.5} />
+            <text x={374} y={22}>Total Nama Ditugaskan</text>
+          </g>
+          {stats.map((s, i) => {
+            const y = 44 + i * 56;
+            const g = s.pct >= 50;
+            const totalW = (s.total / max) * band;
+            const sudahW = (s.sudah / max) * band;
+            const belumW = (s.belum / max) * band;
+            return (
+              <g key={s.pic}>
+                <text x={6} y={y + 8} fontSize={12} fontWeight={700} fill={PALETTE.muted}>{s.pic}</text>
+                <rect x={132} y={y} width={totalW} height={6} rx={3} fill={PALETTE.catBlue} opacity={0.5} />
+                <rect x={132} y={y - 6} width={sudahW} height={5} rx={2.5} fill={PALETTE.success} />
+                <rect x={132} y={y + 7} width={belumW} height={5} rx={2.5} fill={PALETTE.warning} />
+                <text x={664} textAnchor="end" y={y + 8} fontSize={14} fontWeight={800}
+                  fill={g ? PALETTE.success : PALETTE.warning}>
+                  {formatPercent(s.pct / 100, true)}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+    </ChartContainer>
   );
 }
 
@@ -926,17 +1312,47 @@ export function WaAdminDashboard({
 
       <Divider />
 
-      {/* BAND 3 — Sumber (narrow) + Pendaftar Terbaru (wide, expandable) */}
+      {/* BAND 3 — Pendaftar Terbaru (full-width, expandable, inline edit) */}
       {reg.rows.length === 0 ? null : (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-          <SourcePanel sources={reg.sources} />
-          <RecentTable recent={reg.recent} matches={reg.matches} />
+        <div className="mb-8 grid grid-cols-1 gap-6">
+          <RecentTable recent={reg.recent} matches={reg.matches} rows={rows} onRefresh={onRefresh} />
         </div>
       )}
 
       <Divider />
 
-      {/* BAND 4 — Analisis WhatsApp Admin (folded, no regression) */}
+      {/* BAND 4 — Sumber Pendaftaran (full-width, moved below Terbaru) */}
+      {reg.rows.length === 0 ? null : (
+        <div className="mb-8 grid grid-cols-1 gap-6">
+          <div className="relative">
+            {reg.sources.length ? (
+              <span
+                aria-hidden
+                className="pointer-events-none absolute right-3 top-2 z-10 rounded-full bg-brand/10 px-2.5 py-0.5 text-[0.78rem] font-bold text-brand-hover"
+              >
+                {reg.sources.length}
+              </span>
+            ) : null}
+            <SourcePanel sources={reg.sources} />
+          </div>
+        </div>
+      )}
+
+      <Divider />
+
+      {/* BAND 5 — Analisis Per PIC (new full-width band) */}
+      <SectionHeader
+        title="Analisis Per PIC"
+        subtitle="Perbandingan pembayaran per PIC — nama ditugaskan, sudah bayar, belum bayar, dan persentase pembayaran."
+      />
+      <div className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,4fr)]">
+        <PicTable stats={reg.pics} />
+        <PicChart stats={reg.pics} />
+      </div>
+
+      <Divider />
+
+      {/* BAND 6 — Analisis WhatsApp Admin (folded, no regression) */}
       <section className="mb-8 rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]">
         <button
           type="button"

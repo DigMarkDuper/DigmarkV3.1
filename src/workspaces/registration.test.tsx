@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { WaAdminDashboard } from "@/workspaces/WaAdminDashboard";
 import type { Row } from "@/server/adapter/source";
+import { REGISTRATION_COLUMNS } from "@/server/adapter/registrationSchema";
 import {
   stageReached,
   hasilDiterima,
@@ -18,6 +19,7 @@ import {
   matchRegistrationToWa,
   buildRegMatches,
   deriveRegistrationStats,
+  picAnalysis,
   cellOrDash,
   timestampMs,
 } from "@/workspaces/registration";
@@ -33,6 +35,7 @@ const INTERVIEW = "Interview";
 const JUKNIS = "Pengiriman Juknis";
 const PAY = "Pembayaran";
 const GRUP = "Invite Grup Pendaftar";
+const PIC = "PIC";
 const PENJADWALAN = "Penjadwalan Interview";
 const SOURCE = "MENGETAHUI DUTA PERSADA DARI";
 
@@ -50,6 +53,7 @@ function regRow(partial: Partial<Row>): Row {
     [JUKNIS]: "",
     [PAY]: "",
     [GRUP]: "",
+    [PIC]: "",
     ...partial,
   };
 }
@@ -63,7 +67,7 @@ const FIXTURE: Row[] = [
     "Nomor Whatsapp": "62813000001",
     [SOURCE]: "Instagram",
     [PENJADWALAN]: SUDAH, [INTERVIEW]: SUDAH, [HASIL]: YA,
-    [JUKNIS]: SUDAH, [PAY]: SUDAH, [GRUP]: SUDAH,
+    [JUKNIS]: SUDAH, [PAY]: SUDAH, [GRUP]: SUDAH, [PIC]: "ONLINE",
   }),
   // r2: interview done, diterima Ya, juknis sent, pembayaran NOT yet
   regRow({
@@ -72,7 +76,7 @@ const FIXTURE: Row[] = [
     "Nomor Whatsapp": "62813000002",
     [SOURCE]: "Instagram",
     [PENJADWALAN]: SUDAH, [INTERVIEW]: SUDAH, [HASIL]: YA,
-    [JUKNIS]: SUDAH, [PAY]: "", [GRUP]: "",
+    [JUKNIS]: SUDAH, [PAY]: "", [GRUP]: "", [PIC]: "ONLINE",
   }),
   // r3: interview done, hasil blank -> "Interview Belum Diisi Hasil"
   regRow({
@@ -81,7 +85,7 @@ const FIXTURE: Row[] = [
     "Nomor Whatsapp": "62813000003",
     [SOURCE]: "Website",
     [PENJADWALAN]: SUDAH, [INTERVIEW]: SUDAH, [HASIL]: "",
-    [JUKNIS]: "", [PAY]: "", [GRUP]: "",
+    [JUKNIS]: "", [PAY]: "", [GRUP]: "", [PIC]: "ABI",
   }),
   // r4: no penjadwalan -> "Belum Dijadwalkan Interview"
   regRow({
@@ -90,7 +94,7 @@ const FIXTURE: Row[] = [
     "Nomor Whatsapp": "62813000004",
     [SOURCE]: "TIKTOK",
     [PENJADWALAN]: "", [INTERVIEW]: "", [HASIL]: "",
-    [JUKNIS]: "", [PAY]: "", [GRUP]: "",
+    [JUKNIS]: "", [PAY]: "", [GRUP]: "", [PIC]: "AZIZ",
   }),
   // r5 (2025, OTHER YEAR — must be excluded from 2026 year filter)
   regRow({
@@ -99,7 +103,7 @@ const FIXTURE: Row[] = [
     "Nomor Whatsapp": "62813000005",
     [SOURCE]: "Rekomendasi Teman / keluarga",
     [PENJADWALAN]: SUDAH, [INTERVIEW]: SUDAH, [HASIL]: YA,
-    [JUKNIS]: SUDAH, [PAY]: SUDAH, [GRUP]: SUDAH,
+    [JUKNIS]: SUDAH, [PAY]: SUDAH, [GRUP]: SUDAH, [PIC]: "ONLINE",
   }),
   // r6: pembayaran done but grup blank -> "Sudah Pembayaran, Belum Invite Grup"
   regRow({
@@ -108,7 +112,7 @@ const FIXTURE: Row[] = [
     "Nomor Whatsapp": "62813000006",
     [SOURCE]: "Instagram",
     [PENJADWALAN]: SUDAH, [INTERVIEW]: SUDAH, [HASIL]: YA,
-    [JUKNIS]: SUDAH, [PAY]: SUDAH, [GRUP]: BELUM,
+    [JUKNIS]: SUDAH, [PAY]: SUDAH, [GRUP]: BELUM, [PIC]: "ONLINE",
   }),
   // r7: diterima Ya, juknis blank -> "Diterima, Juknis Belum Dikirim"
   regRow({
@@ -117,7 +121,7 @@ const FIXTURE: Row[] = [
     "Nomor Whatsapp": "62813000007",
     [SOURCE]: "Website",
     [PENJADWALAN]: SUDAH, [INTERVIEW]: SUDAH, [HASIL]: YA,
-    [JUKNIS]: BELUM, [PAY]: "", [GRUP]: "",
+    [JUKNIS]: BELUM, [PAY]: "", [GRUP]: "", [PIC]: "ABI",
   }),
   // r8: juknis sent, pembayaran blank -> "Juknis Dikirim, Belum Pembayaran"
   regRow({
@@ -126,7 +130,7 @@ const FIXTURE: Row[] = [
     "Nomor Whatsapp": "62813000008",
     [SOURCE]: "Brosur",
     [PENJADWALAN]: SUDAH, [INTERVIEW]: SUDAH, [HASIL]: YA,
-    [JUKNIS]: SUDAH, [PAY]: BELUM, [GRUP]: "",
+    [JUKNIS]: SUDAH, [PAY]: BELUM, [GRUP]: "", [PIC]: "TATOK",
   }),
   // r9: hasil Tidak (rejected) -> counts Pendaftar but NOT Diterima
   regRow({
@@ -281,6 +285,63 @@ describe("source breakdown (per source: Pendaftar/Diterima/Pembayaran)", () => {
   });
 });
 
+describe("PIC column + picAnalysis", () => {
+  it("REGISTRATION_COLUMNS places PIC between Invite Grup Pendaftar and Keterangan", () => {
+    const i = REGISTRATION_COLUMNS.indexOf("PIC");
+    expect(i).toBeGreaterThan(-1);
+    expect(REGISTRATION_COLUMNS[i - 1]).toBe("Invite Grup Pendaftar");
+    expect(REGISTRATION_COLUMNS[i + 1]).toBe("Keterangan");
+    expect(REGISTRATION_COLUMNS).toHaveLength(36); // verified live 2026-09
+  });
+
+  it("picAnalysis groups by PIC: total/sudah/belum/pct, total-desc then pic-asc", () => {
+    const pics = picAnalysis(filterByYear(FIXTURE, 2026));
+    const byPic = Object.fromEntries(pics.map((p) => [p.pic, p]));
+    // ONLINE = r1 Ali (Sudah), r2 Budi (blank), r6 Fina (Sudah) -> sudah 2/3 = 66.7%
+    expect(byPic.ONLINE).toEqual({ pic: "ONLINE", total: 3, sudah: 2, belum: 1, pct: 66.7 });
+    // ABI = r3 Caro, r7 Galio (both blank payment)
+    expect(byPic.ABI).toEqual({ pic: "ABI", total: 2, sudah: 0, belum: 2, pct: 0 });
+    expect(byPic.AZIZ).toEqual({ pic: "AZIZ", total: 1, sudah: 0, belum: 1, pct: 0 });
+    expect(byPic.TATOK).toEqual({ pic: "TATOK", total: 1, sudah: 0, belum: 1, pct: 0 });
+    // total-desc, then pic-asc among the single-row groups
+    expect(pics.map((p) => p.pic)).toEqual(["ONLINE", "ABI", "AZIZ", "TATOK"]);
+  });
+
+  it("picAnalysis excludes blank-PIC rows entirely (r9, r10), no NaN", () => {
+    const pics = picAnalysis(filterByYear(FIXTURE, 2026));
+    const counted = pics.reduce((a, p) => a + p.total, 0);
+    expect(counted).toBe(7); // r1-8 minus the two blank-PIC rows (r9, r10)
+    for (const p of pics) {
+      expect(Number.isFinite(p.pct)).toBe(true);
+      expect(p.pct).toBeGreaterThanOrEqual(0);
+      expect(p.pct).toBeLessThanOrEqual(100);
+    }
+    expect(picAnalysis([])).toEqual([]);
+  });
+
+  it("picAnalysis groups case-insensitively and trims whitespace", () => {
+    const rows: Row[] = [
+      regRow({ [PIC]: "online", [PAY]: SUDAH }),
+      regRow({ [PIC]: "ONLINE", "Nama Lengkap": "B" }),
+      regRow({ [PIC]: "  ABI  ", [PAY]: SUDAH }),
+      regRow({ [PIC]: "   ", [PAY]: SUDAH }), // blank after trim -> excluded
+      regRow({ [PIC]: undefined }), // undefined -> excluded
+    ];
+    const pics = picAnalysis(rows);
+    expect(pics.map((p) => p.pic)).toEqual(["online", "ABI"]);
+    expect(pics.find((p) => p.pic === "online")).toEqual({ pic: "online", total: 2, sudah: 1, belum: 1, pct: 50 });
+    expect(pics.find((p) => p.pic === "ABI")).toEqual({ pic: "ABI", total: 1, sudah: 1, belum: 0, pct: 100 });
+  });
+
+  it("deriveRegistrationStats exposes pics via picAnalysis", () => {
+    const s = deriveRegistrationStats(FIXTURE, 2026);
+    expect(s.pics).toEqual(picAnalysis(filterByYear(FIXTURE, 2026)));
+    expect(s.pics.find((p) => p.pic === "ONLINE")!.total).toBe(3);
+    const none = deriveRegistrationStats(FIXTURE, 2027);
+    expect(none.pics).toEqual([]);
+  });
+});
+
 describe("recent pendaftar + cell display", () => {
   it("sorts newest Timestamp first; unparseable sinks last", () => {
     const recent = recentPendaftar(filterByYear(FIXTURE, 2026));
@@ -416,5 +477,38 @@ describe("WaAdminDashboard registration bands (react-dom/server)", () => {
     );
     expect(html).toContain("Analisis WhatsApp Admin");
     expect(html).toContain("Total Pendaftar");
+  });
+
+  it("renders the new BAND 5 Analisis Per PIC (table + chart) with per-PIC stats", () => {
+    const html = renderToStaticMarkup(
+      <WaAdminDashboard rows={[]} columns={waCols} registrationRows={FIXTURE} onRefresh={() => {}} />,
+    );
+    expect(html).toContain("Analisis Per PIC");
+    expect(html).toContain("Total Nama Ditugaskan");
+    expect(html).toContain("Sudah Bayar");
+    expect(html).toContain("Belum Bayar");
+    expect(html).toContain("% Pembayaran");
+    expect(html).toContain("ONLINE"); // FIXTURE r1/r2 PIC value from the table
+    expect(html).toContain("role=\"img\""); // pure-SVG grouped bar chart
+    expect(html).toContain("Bar chart: pembayaran per PIC");
+  });
+
+  it("shows the Pern PIC empty state when no PIC is assigned", () => {
+    const noPics = FIXTURE.map((r) => ({ ...r, PIC: "" }));
+    const html = renderToStaticMarkup(
+      <WaAdminDashboard rows={[]} columns={waCols} registrationRows={noPics} onRefresh={() => {}} />,
+    );
+    expect(html).toContain("Belum ada data per PIC.");
+  });
+
+  it("matched Pendaftar Terbaru rows expose ✓ Terdaftar + ✏️ Ubah; unmatched show Ambar (view-only)", () => {
+    const waRows = [{ "No Hp": "62813000001", Nama: "Ali", PIC: "ONLINE" }];
+    const html = renderToStaticMarkup(
+      <WaAdminDashboard rows={waRows} columns={waCols} registrationRows={FIXTURE} onRefresh={() => {}} />,
+    );
+    expect(html).toContain("Pendaftar Terbaru");
+    expect(html).toContain("✓ Terdaftar"); // matched chip (r1 Ali)
+    expect(html).toContain("✏️ Ubah"); // matched row edit affordance
+    expect(html).toContain("Ambar"); // unmatched rows remain view-only
   });
 });

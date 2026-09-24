@@ -31,6 +31,7 @@ const COL_HASIL = "Hasil Interview\n(Diterima/Tidak)";
 const COL_JUKNIS = "Pengiriman Juknis";
 const COL_PAYMENT = "Pembayaran";
 const COL_GRUP = "Invite Grup Pendaftar";
+const COL_PIC = "PIC";
 
 /** `Sudah` (case-insensitive exact, after trim) marks a stage as reached. */
 export function stageReached(value: unknown): boolean {
@@ -244,6 +245,44 @@ export function sourceBreakdownReg(rows: Row[]): SourceRegStat[] {
 }
 
 /* ---------------------------------------------------------------------------
+ * PIC breakdown — per PIC value: Pendaftar / Pembayaran figures.
+ * Rows with blank/undefined PIC are excluded from per-PIC analysis.
+ * ------------------------------------------------------------------------ */
+export interface PicStat {
+  pic: string;
+  total: number;
+  sudah: number;
+  belum: number;
+  pct: number;
+}
+
+/** Group rows by PIC (case-insensitive key); exclude blank. Total-desc, pic-asc. */
+export function picAnalysis(rows: Row[]): PicStat[] {
+  const tally = new Map<string, { pic: string; group: Row[] }>();
+  for (const r of rows) {
+    const v = String(r[COL_PIC] ?? "").trim();
+    if (v === "") continue;
+    const key = v.toLowerCase();
+    const entry = tally.get(key);
+    if (entry) entry.group.push(r);
+    else tally.set(key, { pic: v, group: [r] });
+  }
+  const out: PicStat[] = [];
+  for (const { pic, group } of tally.values()) {
+    const total = group.length;
+    const sudah = group.filter((r) => stageReached(r[COL_PAYMENT])).length;
+    out.push({
+      pic,
+      total,
+      sudah,
+      belum: total - sudah,
+      pct: total > 0 ? Math.round((sudah / total) * 1000) / 10 : 0,
+    });
+  }
+  return out.sort((a, b) => b.total - a.total || a.pic.localeCompare(b.pic));
+}
+
+/* ---------------------------------------------------------------------------
  * Pendaftar Terbaru — recent rows (newest Timestamp first) with detail.
  * ------------------------------------------------------------------------ */
 
@@ -388,6 +427,7 @@ export interface RegistrationStats {
   needs: NeedsCategory[];
   needsTotal: number;
   sources: SourceRegStat[];
+  pics: PicStat[];
   recent: Row[];
   matches: Map<Row, RegistrationMatch>;
 }
@@ -410,6 +450,7 @@ export function deriveRegistrationStats(
     needs,
     needsTotal: needsAttentionTotal(needs),
     sources: sourceBreakdownReg(yearRows),
+    pics: picAnalysis(yearRows),
     recent: recentPendaftar(yearRows),
     matches: buildRegMatches(yearRows, waRows),
   };
