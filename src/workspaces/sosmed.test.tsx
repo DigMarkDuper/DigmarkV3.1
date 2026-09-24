@@ -11,6 +11,7 @@ import {
   isDone,
   isOverdue,
   isVideo,
+  latestDeadlineMonthSet,
   picOptions,
   sosmedMetrics,
   sosmedMonths,
@@ -531,12 +532,15 @@ describe("Sosmed filter bar — searchable multi-select dropdown (redesign)", ()
     for (const t of ["PIC", "Bulan Deadline", "Status", "Platform", "Content Pillar", "Format"]) {
       expect(html).toContain(`aria-label="${t}"`);
     }
-    // Full selection default -> each trigger's summary chip reads "Semua"; no active filter state.
+    // Default scope = LATEST deadline period (brief #1): FIXTURE has two months
+    // (September/October 2026), latest = October 2026 -> Bulan Deadline is a
+    // single-month active filter, so an Active Filter summary is shown. The other
+    // five dimensions stay all-selected (their chips read "Semua").
     expect(html).toContain("Semua");
-    // Reset stays visible; the Active Filter Summary (incl. "Hapus Semua") is hidden while nothing is filtered.
+    expect(html).toContain("1 dipilih"); // Bulan Deadline single latest-month scope
     expect(html).toContain("Reset");
-    expect(html).not.toContain("Filter Aktif");
-    expect(html).not.toContain("Hapus Semua");
+    expect(html).toContain("Filter Aktif");
+    expect(html).toContain("Hapus Semua");
     expect((html.match(/max-h-\[160px\]/g) ?? []).length).toBe(0);
   });
 
@@ -560,6 +564,74 @@ describe("Sosmed filter bar — searchable multi-select dropdown (redesign)", ()
     expect(extra.chip).toBe("4 dipilih");
     expect(extra.active).toBe(true);
     expect(extra.allChecked).toBe(true);
+  });
+});
+
+describe("Sosmed revisions — latest-period default scope + reworked layout (§1..§10)", () => {
+  it("latestDeadlineMonthSet returns ONLY the max-deadline month label", () => {
+    // FIXTURE deadlines: Sep 18, Sep 25, Oct 02, Oct 05 (+ unparseable K5). Latest = Oct 05.
+    const months = ["September 2026", "October 2026"];
+    expect(latestDeadlineMonthSet(months, FIXTURE)).toEqual(new Set(["October 2026"]));
+    expect(latestDeadlineMonthSet(months, FIXTURE).size).toBe(1);
+    // Single-month edge: behavior identical regardless of default.
+    const single = [row({ "Kode Konten": "S1", "Tanggal Deadline": "15/03/2026" })];
+    expect(latestDeadlineMonthSet(["March 2026"], single)).toEqual(new Set(["March 2026"]));
+  });
+
+  it("latestDeadlineMonthSet falls back to ALL months when no deadline parses or rows empty (§4.3)", () => {
+    const months = ["September 2026", "October 2026"];
+    expect(latestDeadlineMonthSet(months, [])).toEqual(new Set(months));
+    expect(latestDeadlineMonthSet(months, [row({ "Kode Konten": "X", "Tanggal Deadline": "bad" }), row({ "Kode Konten": "Y", "Tanggal Deadline": "" })])).toEqual(new Set(months));
+    // A derivable deadline wins even when the options array is empty — the label
+    // comes from the data, and the `months` array only feeds the no-deadline fallback.
+    expect(latestDeadlineMonthSet([], FIXTURE)).toEqual(new Set(["October 2026"]));
+  });
+
+  it("layout: Deadline Monitoring renders ABOVE Production Overview (primary-band move §5.1)", () => {
+    const html = renderToStaticMarkup(<SosmedDashboard rows={FIXTURE} isEditor onRefresh={() => {}} />);
+    const dmIdx = html.indexOf("Prioritas utama: Overdue, jatuh tempo hari ini/minggu ini, dan selesai.");
+    const poIdx = html.indexOf("Ringkasan produksi: planned, done, in-progress, overdue, dan completion-rate.");
+    expect(dmIdx).toBeGreaterThan(-1);
+    expect(poIdx).toBeGreaterThan(dmIdx);
+    // the low band (§8) is NOT duplicated on the page — only one Deadline Monitoring section header.
+    expect((html.match(/Deadline Monitoring/g) ?? []).length).toBe(1);
+  });
+
+  it("layout: compact 5-across grids for Production Overview (2 rows) + Publishing Tracker, keeping every metric (§5.2/§8.2)", () => {
+    const html = renderToStaticMarkup(<SosmedDashboard rows={FIXTURE} isEditor onRefresh={() => {}} />);
+    // 2 overview rows + publishing tracker = 3 occurrences of the xl:5-cols utility.
+    expect((html.match(/xl:grid-cols-5/g) ?? []).length).toBe(3);
+    for (const t of ["Total Planned", "Total Done", "In Progress", "Overdue", "Completion Rate",
+      "Video Selesai", "Design Selesai", "Hutang Post IG", "Hutang Post TikTok", "Hutang Post YT",
+      "Instagram Published", "TikTok Published", "YouTube Published", "Cross-platform", "Finished, Unpublished"]) {
+      expect(html).toContain(t);
+    }
+  });
+
+  it("layout: Funnel|Breakdown and Workload|PIC render side-by-side 50/50 grids (§7/§8.1)", () => {
+    const html = renderToStaticMarkup(<SosmedDashboard rows={FIXTURE} isEditor onRefresh={() => {}} />);
+    // two 50/50 rows share the same splitRow utility.
+    expect((html.match(/xl:grid-cols-\[minmax\(0,1fr\)_minmax\(0,1fr\)\]/g) ?? []).length).toBe(2);
+    expect(html).toContain("Production Funnel &amp; Status Breakdown");
+    expect(html).toContain("Berapa konten di setiap fase");
+    expect(html).toContain("Monitoring dan kapasitas per PIC");
+  });
+
+  it("renders the interactive Output Trend: Indonesian legend + zoom toolbar + ariaLabels (§10)", () => {
+    const html = renderToStaticMarkup(<SosmedDashboard rows={FIXTURE} isEditor onRefresh={() => {}} />);
+    // FIXTURE (October scope) yields ≥1 trend week -> interactive chart, not the empty state.
+    expect(html).toContain("Tren output per minggu — seri Rencana dan Selesai");
+    expect(html).toContain("Rencana");
+    expect(html).toContain("Selesai");
+    expect(html).toContain('aria-label="Perbesar tren"');
+    expect(html).toContain('aria-label="Perkecil tren"');
+    expect(html).not.toContain("Belum ada data deadline untuk tren."); // has data
+  });
+
+  it("renders the Output Trend empty-state card when no deadline week parses (§10.3)", () => {
+    const noTrend = [row({ "Kode Konten": "K1", PROSES: "DONE", "Tanggal Deadline": "bad" })];
+    const html = renderToStaticMarkup(<SosmedDashboard rows={noTrend} isEditor onRefresh={() => {}} />);
+    expect(html).toContain("Belum ada data deadline untuk tren.");
   });
 });
 

@@ -33,7 +33,6 @@ import { patchJson, postJson } from "@/lib/api-client";
 import { Divider } from "@/components/ui/Divider";
 import { Button } from "@/components/ui/Button";
 import { SectionHeader } from "@/components/sections/SectionHeader";
-import { MetricRow } from "@/components/metrics/MetricRow";
 import { MetricCard } from "@/components/metrics/MetricCard";
 import { ChartContainer } from "@/components/charts/ChartContainer";
 import { ModuleHero } from "@/components/layout/ModuleHero";
@@ -57,6 +56,7 @@ import {
   diffPatches,
   distinctValues,
   filterRows,
+  latestDeadlineMonthSet,
   outputTrend,
   picOptions,
   picWorkload,
@@ -80,6 +80,12 @@ import {
 function str(v: unknown): string {
   return v === null || v === undefined ? "" : String(v);
 }
+
+/** §5.2/§8.2 — compact 5-across grid (xl → 5 cards) for MetricCard chips. */
+const compactRow = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3";
+
+/** §7/§8.1 — 50/50 responsive 2-col grid (minmax(0,1fr) prevents horizontal overflow). */
+const splitRow = "grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]";
 
 /** Pure trigger-state derivation for a dropdown — testable without rendering. */
 export function selectionSummary(
@@ -378,31 +384,212 @@ function FunnelBars({ stages }: { stages: { key: ProdStage; label: string; count
   );
 }
 
-/** Dependency-free weekly trend: grouped bars (Planned vs Done) per week. */
-function TrendBars({ points }: { points: { label: string; planned: number; done: number }[] }) {
-  const max = Math.max(...points.map((p) => p.planned), 1);
-  const slot = 24;
-  const barW = 7;
-  const gap = 2;
-  const chartW = Math.max(points.length * slot, 100);
-  const chartH = 140;
-  const h = 96;
+/**
+ * §1/§10 — Interactive Output Trend (dependency-free hand-rolled SVG).
+ * Series: Planned (line+area, PALETTE.muted/grid) and Done (line+area,
+ * PALETTE.success). Interactions required by the brief: hover tooltip (HTML,
+ * Indonesian: Rencana/Selesai/Delta + crosshair), wheel AND +/− zoom (scale
+ * 1..8 around the hovered/focused week), drag pan (clamped), Reset View, and
+ * legend toggles (at least one series always visible). Zero charting library.
+ * `outputTrend()` derivation in sosmed.ts is untouched.
+ */
+function InteractiveOutputTrend({ points }: { points: { label: string; planned: number; done: number }[] }) {
+  const n = points.length;
+  const [scale, setScale] = useState(1);
+  const [windowStart, setWindowStart] = useState(0);
+  const [hover, setHover] = useState<number | null>(null);
+  const [showPlanned, setShowPlanned] = useState(true);
+  const [showDone, setShowDone] = useState(true);
+  const [dragging, setDragging] = useState(false);
+  const plotRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ startX: number; startStart: number } | null>(null);
+
+  // One source of truth: {scale, windowStart} → derived visible slice.
+  const windowWidth = Math.max(1, Math.ceil(n / scale));
+  const maxStart = Math.max(0, n - windowWidth);
+  const start = Math.min(windowStart, maxStart);
+  const visible = points.slice(start, start + windowWidth);
+  const yMax = Math.max(...visible.map((p) => p.planned), 1);
+  // Right-size the card to content (scale with visible weeks, capped, no dead footer).
+  const plotH = Math.max(180, Math.min(320, 40 * windowWidth));
+  const plotInnerBottom = plotH - 8;
+  const plotInnerH = plotInnerBottom - 8;
+  const vbW = Math.max(120, windowWidth * 120);
+  const slotW = vbW / windowWidth;
+  const x = (k: number) => (k + 0.5) * slotW; // local slot index 0..windowWidth-1
+  const y = (v: number) => plotInnerBottom - (v / yMax) * plotInnerH;
+
+  const plannedVisible = visible.some((p) => p.planned > 0);
+  const doneVisible = visible.some((p) => p.done > 0);
+
+  const flatten = (keyIn: "planned" | "done"): string => {
+    if (visible.length === 0) return "";
+    return visible.map((p, k) => `${k === 0 ? "M" : "L"}${x(k).toFixed(2)},${y(p[keyIn]).toFixed(2)}`).join(" ");
+  };
+  const areaPathOf = (keyIn: "planned" | "done"): string => {
+    if (visible.length === 0) return "";
+    const seg = flatten(keyIn);
+    return `${seg} L${x(visible.length - 1).toFixed(2)},${plotInnerBottom.toFixed(2)} L${x(0).toFixed(2)},${plotInnerBottom.toFixed(2)} Z`;
+  };
+
+  const clampStart = (s: number) => Math.max(0, Math.min(s, maxStart));
+
+  const zoomAt = (clientX: number, factor: number) => {
+    const rect = plotRef.current?.getBoundingClientRect();
+    const frac = rect && rect.width > 0 ? (clientX - rect.left) / rect.width : 0.5;
+    const anchor = hover ?? clampStart(start + Math.floor(frac * windowWidth));
+    const newScale = Math.min(8, Math.max(1, scale * factor));
+    const newWidth = Math.max(1, Math.ceil(n / newScale));
+    setScale(newScale);
+    setWindowStart(clampStart(Math.round(anchor - frac * newWidth)));
+  };
+  const zoomCenter = (factor: number) => {
+    const rect = plotRef.current?.getBoundingClientRect();
+    zoomAt(rect ? rect.left + rect.width / 2 : 0, factor);
+  };
+  const reset = () => { setScale(1); setWindowStart(0); setHover(null); };
+
+  const isTransformDefault = scale === 1 && start === 0;
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    dragRef.current = { startX: e.clientX, startStart: start };
+    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+    setDragging(true);
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const rect = plotRef.current?.getBoundingClientRect();
+    if (!rect || rect.width <= 0) return;
+    const frac = (e.clientX - rect.left) / rect.width;
+    setHover(clampStart(start + Math.floor(frac * windowWidth)));
+    if (dragRef.current) {
+      const dw = Math.round(((e.clientX - dragRef.current.startX) / rect.width) * windowWidth);
+      setWindowStart(clampStart(dragRef.current.startStart - dw));
+    }
+  };
+  const stopDrag = () => { dragRef.current = null; setDragging(false); };
+  const onWheel = (e: React.WheelEvent<HTMLDivElement>) => { e.preventDefault(); zoomAt(e.clientX, e.deltaY < 0 ? 1.4 : 1 / 1.4); };
+
+  const hoverPt = hover !== null ? points[hover] : null;
+  const hoverFrac = hover !== null && start <= hover && hover < start + windowWidth ? (hover - start + 0.5) / windowWidth : null;
+  const hoverYTick = hoverPt ? y(showPlanned ? hoverPt.planned : hoverPt.done) : plotInnerBottom;
+  const tipLeft = Math.min(Math.max(hoverFrac !== null ? hoverFrac * 100 : 50, 14), 86);
+
   return (
-    <div style={{ height: `${chartH + 34}px` }}>
-      <svg viewBox={`0 0 ${chartW} ${chartH + 34}`} role="img" aria-label="Output Trend per Week" className="h-full w-full">
-        {points.map((p, i) => {
-          const x = i * slot + 6;
-          const ph = (p.planned / max) * h;
-          const dh = (p.done / max) * h;
-          return (
-            <g key={i}>
-              <rect x={x} y={chartH - ph} width={barW} height={ph} rx="2" fill={PALETTE.grid} />
-              {p.done > 0 ? <rect x={x + barW + gap} y={chartH - dh} width={barW} height={dh} rx="2" fill={PALETTE.success} /> : null}
-              <text x={x + 3} y="130" textAnchor="middle" fontSize="10" fill={PALETTE.muted}>{p.label}</text>
+    <div className="relative rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)] backdrop-blur-[8px]">
+      {/* Legend row (Rencana / Selesai) + toolbar */}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            aria-pressed={showPlanned}
+            aria-label="Tampilkan atau sembunyikan seri Rencana"
+            onClick={() => setShowPlanned((s) => (s && !showDone ? s : !s))}
+            className={`inline-flex items-center gap-2 rounded-[10px] border px-2.5 py-1 text-[0.82rem] font-semibold transition-colors ${showPlanned ? "border-border bg-surface-input text-ink" : "border-border/60 bg-transparent text-muted/60"}`}
+          >
+            <span aria-hidden className="h-3 w-3 rounded-sm" style={{ background: showPlanned && plannedVisible ? PALETTE.muted : "rgba(0,0,0,0.25)" }} />
+            Rencana{showPlanned ? `: ${hoverPt ? hoverPt.planned : visible.reduce((s, p) => s + p.planned, 0)}` : ""}
+          </button>
+          <button
+            type="button"
+            aria-pressed={showDone}
+            aria-label="Tampilkan atau sembunyikan seri Selesai"
+            onClick={() => setShowDone((s) => (s && !showPlanned ? s : !s))}
+            className={`inline-flex items-center gap-2 rounded-[10px] border px-2.5 py-1 text-[0.82rem] font-semibold transition-colors ${showDone ? "border-border bg-surface-input text-ink" : "border-border/60 bg-transparent text-muted/60"}`}
+          >
+            <span aria-hidden className="h-3 w-3 rounded-sm" style={{ background: showDone && doneVisible ? PALETTE.success : "rgba(0,0,0,0.25)" }} />
+            Selesai{showDone ? `: ${hoverPt ? hoverPt.done : visible.reduce((s, p) => s + p.done, 0)}` : ""}
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          {!isTransformDefault ? (
+            <button type="button" onClick={reset} aria-label="Reset tampilan tren"
+              className="inline-flex items-center gap-1.5 rounded-[10px] border border-border bg-surface-input px-2.5 py-1 text-[0.8rem] font-semibold text-brand transition-colors hover:border-brand/40 hover:text-brand-hover">
+              ⤺ Reset View
+            </button>
+          ) : null}
+          <span className="text-[0.72rem] tabular-nums text-muted">Skala {scale.toFixed(1)}×</span>
+          <button type="button" onClick={() => zoomCenter(1.5)} aria-label="Perbesar tren" className="flex h-7 w-7 items-center justify-center rounded-[8px] border border-border bg-surface-input text-ink hover:border-brand/40">＋</button>
+          <button type="button" onClick={() => zoomCenter(1 / 1.5)} aria-label="Perkecil tren" className="flex h-7 w-7 items-center justify-center rounded-[8px] border border-border bg-surface-input text-ink hover:border-brand/40">−</button>
+        </div>
+      </div>
+
+      {/* Plot surface — pan = pointer drag, zoom = wheel, hover = snap to week */}
+      <div
+        ref={plotRef}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={stopDrag}
+        onPointerLeave={stopDrag}
+        onWheel={onWheel}
+        role="img"
+        aria-label="Tren output per minggu — seri Rencana dan Selesai"
+        className={`relative touch-none select-none ${dragging ? "cursor-grabbing" : "cursor-grab"}`}
+      >
+        <svg viewBox={`0 0 ${vbW} ${plotH}`} preserveAspectRatio="none"
+          className={`w-full ${visible.length ? "block" : "hidden"}`} style={{ height: `${plotH}px` }} aria-hidden>
+          {/* horizontal gridlines */}
+          {[0, 0.25, 0.5, 0.75, 1].map((f) => {
+            const gy = plotInnerBottom - f * plotInnerH;
+            return <line key={f} x1={0} y1={gy} x2={vbW} y2={gy} stroke={PALETTE.grid} strokeWidth={1} strokeDasharray={f === 0 ? "0" : "3 3"} />;
+          })}
+          {showPlanned && plannedVisible ? (
+            <g>
+              <path d={areaPathOf("planned")} fill={PALETTE.grid} opacity={0.55} />
+              <path d={flatten("planned")} fill="none" stroke={PALETTE.muted} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
             </g>
-          );
-        })}
-      </svg>
+          ) : null}
+          {showDone && doneVisible ? (
+            <g>
+              <path d={areaPathOf("done")} fill={PALETTE.success} opacity={0.18} />
+              <path d={flatten("done")} fill="none" stroke={PALETTE.success} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+            </g>
+          ) : null}
+        </svg>
+
+        {/* crosshair guide lines */}
+        {hoverFrac !== null && (showPlanned || showDone) ? (
+          <>
+            <div aria-hidden className="pointer-events-none absolute top-0 bottom-0 w-px bg-muted/60" style={{ left: `${hoverFrac * 100}%` }} />
+            <div aria-hidden className="pointer-events-none absolute left-0 right-0 h-px bg-muted/40" style={{ top: `${((plotH - hoverYTick) / plotH) * 100}%` }} />
+          </>
+        ) : null}
+
+        {/* hovered series dots */}
+        {hoverFrac !== null && hoverPt ? (
+          <>
+            {showPlanned && plannedVisible ? (
+              <div aria-hidden className="pointer-events-none absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-surface"
+                style={{ left: `${hoverFrac * 100}%`, top: `${((plotH - y(hoverPt.planned)) / plotH) * 100}%`, background: PALETTE.ink }} />
+            ) : null}
+            {showDone && doneVisible && hoverPt.done > 0 ? (
+              <div aria-hidden className="pointer-events-none absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-surface"
+                style={{ left: `${hoverFrac * 100}%`, top: `${((plotH - y(hoverPt.done)) / plotH) * 100}%`, background: PALETTE.success }} />
+            ) : null}
+          </>
+        ) : null}
+      </div>
+
+      {/* week labels under the plot */}
+      <div className="mt-1.5 flex w-full items-end gap-1">
+        <span className="w-10 shrink-0 text-[0.68rem] font-semibold text-muted">Maks {yMax}</span>
+        <div className="flex min-w-0 flex-1">
+          {visible.map((p, k) => (
+            <span key={`${start + k}-${p.label}`} className="flex-1 truncate text-center text-[0.68rem] tabular-nums text-muted" title={p.label}>{p.label}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* HTML tooltip (pointer-events-none, Indonesian) */}
+      {hoverPt ? (
+        <div role="status" className="pointer-events-none absolute z-10 min-w-[11rem] rounded-[12px] border border-border bg-surface p-2.5 shadow-[var(--dm-shadow-panel)]"
+          style={{ left: `${tipLeft}%`, top: "8px", transform: "translateX(-50%)" }}>
+          <p className="mb-1 text-[0.72rem] font-bold uppercase tracking-wide text-muted">Minggu {hoverPt.label}</p>
+          <p className="text-[0.85rem] text-ink"><span className="font-semibold">Rencana:</span> {hoverPt.planned}</p>
+          <p className="text-[0.85rem] text-ink"><span className="font-semibold">Selesai:</span> {hoverPt.done}</p>
+          <p className={`text-[0.85rem] font-semibold ${hoverPt.done - hoverPt.planned < 0 ? "text-danger" : "text-success"}`}>Delta: {hoverPt.done - hoverPt.planned}</p>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -574,7 +761,7 @@ function ContentPlannerModal({
         <div className="mt-6 flex items-center justify-end gap-3 border-t border-divider pt-4">
           <Button variant="secondary" onClick={onClose} disabled={saving}>Batal</Button>
           <Button variant="primary" onClick={onSave} disabled={saving || !planFormValid}>
-            {saving ? "Menyimpan..." : "Save Content Plan"}
+            {saving ? "Menyimpan..." : "Simpan Content Plan"}
           </Button>
         </div>
       </div>
@@ -738,7 +925,7 @@ function ContentExplorer({
         <div ref={colWrapRef} className="relative">
           <button type="button" onClick={() => setColMenuOpen(!colMenuOpen)} aria-expanded={colMenuOpen} aria-haspopup="menu"
             className="inline-flex h-9 items-center gap-1.5 rounded-[10px] border border-border bg-surface-input px-3 text-[0.82rem] font-semibold text-ink hover:border-brand/40">
-            ⚙ Columns
+            ⚙ Kolom
           </button>
           {colMenuOpen ? (
             <div className="absolute right-0 z-30 mt-2 w-64 rounded-[12px] border border-border bg-surface p-2 shadow-[var(--dm-shadow-panel)]">
@@ -774,7 +961,7 @@ function ContentExplorer({
         </div>
         <button type="button" onClick={onExpand} aria-label="Perluas ke layar penuh"
           className="inline-flex h-9 items-center gap-1.5 rounded-[10px] border border-border bg-surface-input px-3 text-[0.82rem] font-semibold text-ink hover:border-brand/40">
-          ↗ Expand
+          ↗ Perluas
         </button>
       </div>
 
@@ -833,13 +1020,13 @@ function ContentExplorer({
         <span className="text-[0.8rem] text-muted">{countLine}</span>
         {rows.length > 0 ? (
           <nav aria-label="Navigasi halaman" className="flex items-center gap-1">
-            <button type="button" disabled={page === 1} onClick={() => setPage(page - 1)} className={btnPage} aria-label="Sebelumnya">[Prev]</button>
+            <button type="button" disabled={page === 1} onClick={() => setPage(page - 1)} className={btnPage} aria-label="Sebelumnya">Sebelumnya</button>
             {pageWindows.map((p) => p === "…"
               ? <span key={p} className="px-1 text-muted">…</span>
               : <button key={p} type="button" aria-current={p === page ? "page" : undefined}
                   onClick={() => setPage(Number(p))}
                   className={`${btnPage} ${p === page ? "bg-brand text-white border-brand" : ""}`}>{p}</button>)}
-            <button type="button" disabled={page === totalPages} onClick={() => setPage(page + 1)} className={btnPage} aria-label="Berikutnya">[Next]</button>
+            <button type="button" disabled={page === totalPages} onClick={() => setPage(page + 1)} className={btnPage} aria-label="Berikutnya">Berikutnya</button>
           </nav>
         ) : null}
       </div>
@@ -997,7 +1184,7 @@ export function SosmedDashboard({ rows, planRows = [], isEditor, onRefresh }: So
 
   // --- global section-1 filter (existing behavior, default all selected) ---
   const [picSel, setPicSel] = useState<Set<string>>(() => new Set(pics));
-  const [monthSel, setMonthSel] = useState<Set<string>>(() => new Set(months));
+  const [monthSel, setMonthSel] = useState<Set<string>>(() => latestDeadlineMonthSet(months, rows));
   const [statusSel, setStatusSel] = useState<Set<string>>(() => new Set(statusOptions));
   const [platformSel, setPlatformSel] = useState<Set<string>>(() => new Set(platformOptions));
   const [pillarSel, setPillarSel] = useState<Set<string>>(() => new Set(pillarOptions));
@@ -1005,7 +1192,7 @@ export function SosmedDashboard({ rows, planRows = [], isEditor, onRefresh }: So
   const [openMenu, setOpenMenu] = useState<string | null>(null);
 
   const resetAll = () => {
-    setPicSel(new Set(pics)); setMonthSel(new Set(months)); setStatusSel(new Set(statusOptions));
+    setPicSel(new Set(pics)); setMonthSel(latestDeadlineMonthSet(months, rows)); setStatusSel(new Set(statusOptions));
     setPlatformSel(new Set(platformOptions)); setPillarSel(new Set(pillarOptions)); setFormatSel(new Set(formatOptions));
     setOpenMenu(null);
   };
@@ -1287,23 +1474,42 @@ export function SosmedDashboard({ rows, planRows = [], isEditor, onRefresh }: So
               ) : null}
             </div>
 
-            {/* §2 Production Overview + legacy KPIs */}
+            {/* §5.1 DEADLINE MONITORING — primary band, right under the filter */}
+            <SectionHeader title="Deadline Monitoring" subtitle="Prioritas utama: Overdue, jatuh tempo hari ini/minggu ini, dan selesai." />
+            <div className="rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow)] backdrop-blur-[8px]">
+              <div className="grid gap-3 md:grid-cols-4">
+                {countChip("🚨 Overdue", deadlines.overdueCount, "border-danger/30 bg-danger/10")}
+                {countChip("📅 Due Today", deadlines.dueTodayCount, "border-warning/30 bg-warning/10")}
+                {countChip("🗓️ Due This Week", deadlines.dueThisWeekCount, "border-brand/30 bg-brand/10")}
+                {countChip("✅ Completed", deadlines.completedCount, "border-success/30 bg-success/10")}
+              </div>
+              {deadlines.overdue.length > 0 ? (
+                <div className="mt-2">
+                  <p className="text-[0.82rem] font-semibold text-muted">Overdue-content ({deadlines.overdueCount})</p>
+                  <div className="rounded-[12px] border border-danger/30 bg-surface/70">
+                    {deadlines.overdue.map((r) => <ActionItemRow key={originalIndex(r)} item={{ title: str(r["Judul Konten"]), pic: str(r["PIC"]), deadline: str(r["Tanggal Deadline"]), platform: "", status: str(r["PROSES"]) }} />)}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <Divider />
+
+            {/* §5.2 Production Overview — compact 5-across */}
             <SectionHeader title="Production Overview" subtitle="Ringkasan produksi: planned, done, in-progress, overdue, dan completion-rate." />
-            <MetricRow>
+            <div className={compactRow}>
               <MetricCard icon="📊" label="Total Planned" value={String(overview.planned)} />
               <MetricCard icon="✅" label="Total Done" value={String(overview.done)} />
               <MetricCard icon="⏳" label="In Progress" value={String(overview.inProgress)} />
               <MetricCard icon="🚨" label="Overdue" value={String(overview.overdue)} />
               <MetricCard icon="🎯" label="Completion Rate" value={formatPercent(overview.completionRate ?? 0, overview.completionRate !== null)} />
-            </MetricRow>
-            <div className="mt-4">
-              <MetricRow>
-                <MetricCard icon="🎬" label="Video Selesai" value={metrics.videoLabel} />
-                <MetricCard icon="🎨" label="Design Selesai" value={metrics.designLabel} />
-                <MetricCard icon="📸" label="Hutang Post IG" value={String(metrics.hutangIg)} />
-                <MetricCard icon="🎵" label="Hutang Post TikTok" value={String(metrics.hutangTiktok)} />
-                <MetricCard icon="▶️" label="Hutang Post YT" value={String(metrics.hutangYt)} />
-              </MetricRow>
+            </div>
+            <div className={`mt-3 ${compactRow}`}>
+              <MetricCard icon="🎬" label="Video Selesai" value={metrics.videoLabel} />
+              <MetricCard icon="🎨" label="Design Selesai" value={metrics.designLabel} />
+              <MetricCard icon="📸" label="Hutang Post IG" value={String(metrics.hutangIg)} />
+              <MetricCard icon="🎵" label="Hutang Post TikTok" value={String(metrics.hutangTiktok)} />
+              <MetricCard icon="▶️" label="Hutang Post YT" value={String(metrics.hutangYt)} />
             </div>
 
             <Divider />
@@ -1426,37 +1632,39 @@ export function SosmedDashboard({ rows, planRows = [], isEditor, onRefresh }: So
 
             <Divider />
 
-            {/* §4 Production Funnel */}
-            <SectionHeader title="Production Funnel" subtitle="Funnel produksi (berdasarkan PROSES): Planned → Production → Review → Revision → Done → Published." />
-            <ChartContainer data={funnel} label="Funnel produksi (berdasarkan PROSES)">
-              <FunnelBars stages={funnel} />
-            </ChartContainer>
-
-            <Divider />
-
-            {/* §5 Status Breakdown */}
-            <SectionHeader title="Status Breakdown" subtitle="Berapa konten di setiap fase." />
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {breakdown.map((s) => {
-                const tone = s.key === "published" ? "border-brand/30 bg-brand/10 text-brand-hover"
-                  : s.key === "done" ? "border-success/30 bg-success/10 text-success"
-                    : s.key === "revision" ? "border-danger/30 bg-danger/10 text-danger"
-                      : s.key === "inProduction" ? "border-warning/30 bg-warning/10 text-warning"
-                        : "border-border bg-surface/60 text-muted";
-                return (
-                  <div key={s.key} className={`flex items-center justify-between rounded-[14px] border ${tone} p-3`}>
-                    <span className="text-[0.88rem] font-semibold text-ink">{s.label}</span>
-                    <span className="text-[1.1rem] font-extrabold text-ink">{s.count}</span>
-                  </div>
-                );
-              })}
+            {/* §4 Production Funnel | Status Breakdown — 50/50 */}
+            <SectionHeader title="Production Funnel & Status Breakdown" subtitle="Funnel produksi (Planned → Production → Review → Revision → Done → Published) dan berapa konten di setiap fase." />
+            <div className={splitRow}>
+              {/* LEFT — funnel */}
+              <ChartContainer data={funnel} label="Funnel produksi (berdasarkan PROSES)">
+                <FunnelBars stages={funnel} />
+              </ChartContainer>
+              {/* RIGHT — status breakdown (compact chips, two-across inside the half column) */}
+              <div className="rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)] backdrop-blur-[8px]">
+                <p className="mb-3 text-[0.85rem] font-semibold text-muted">Berapa konten di setiap fase</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {breakdown.map((s) => {
+                    const tone = s.key === "published" ? "border-brand/30 bg-brand/10"
+                      : s.key === "done" ? "border-success/30 bg-success/10"
+                        : s.key === "revision" ? "border-danger/30 bg-danger/10"
+                          : s.key === "inProduction" ? "border-warning/30 bg-warning/10"
+                            : "border-border bg-surface/60";
+                    return (
+                      <div key={s.key} className={`flex items-center justify-between rounded-[12px] border ${tone} p-2.5`}>
+                        <span className="text-[0.82rem] font-semibold text-ink">{s.label}</span>
+                        <span className="text-[0.95rem] font-extrabold text-ink">{s.count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             <Divider />
 
             {/* §6 Action Required (standalone quad grid) */}
             <SectionHeader title="Action Required" subtitle="Tugas operasional: overdue, menunggu review, dalam revisi, dan selesai-belum diposting." />
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="rounded-[16px] border border-danger/30 bg-surface/70">
                 <p className="px-3 py-2 text-[0.88rem] font-bold text-danger">🚨 Overdue ({actions.overdue.length})</p>
                 {actions.overdue.length ? actions.overdue.map((a) => <ActionItemRow key={`${a.title}-${a.pic}-${a.deadline}`} item={a} />) : <p className="px-3 py-2 text-[0.85rem] text-muted">Tidak ada.</p>}
@@ -1477,43 +1685,26 @@ export function SosmedDashboard({ rows, planRows = [], isEditor, onRefresh }: So
 
             <Divider />
 
-            {/* §7 Workload per PIC */}
+            {/* §5 Workload per PIC | PIC Detail Table — 50/50 */}
             <SectionHeader title="Workload per PIC" subtitle="Monitoring dan kapasitas per PIC — bukan ranking." />
-            <ChartContainer data={picLoad} label="Done (hijau) vs Pending (kuning) dengan overdue">
-              <WorkloadBars items={picLoad.map((p) => ({ pic: p.pic, selesai: p.done, hutang: p.pending }))} />
-            </ChartContainer>
-            {picLoad.length > 0 ? <PicCapacityRows items={picLoad} /> : <EmptyState title="Belum ada data workload." />}
-
-            <Divider />
-
-            {/* §8 Deadline Monitoring */}
-            <SectionHeader title="Deadline Monitoring" subtitle="Overdue, jatuh tempo hari ini, minggu ini, dan selesai." />
-            <div className="grid gap-3 md:grid-cols-4">
-              {countChip("🚨 Overdue", deadlines.overdueCount, "border-danger/30 bg-danger/10")}
-              {countChip("📅 Due Today", deadlines.dueTodayCount, "border-warning/30 bg-warning/10")}
-              {countChip("🗓️ Due This Week", deadlines.dueThisWeekCount, "border-brand/30 bg-brand/10")}
-              {countChip("✅ Completed", deadlines.completedCount, "border-success/30 bg-success/10")}
+            <div className={splitRow}>
+              <ChartContainer data={picLoad} label="Done (hijau) vs Pending (kuning) dengan overdue">
+                <WorkloadBars items={picLoad.map((p) => ({ pic: p.pic, selesai: p.done, hutang: p.pending }))} />
+              </ChartContainer>
+              {picLoad.length > 0 ? <PicCapacityRows items={picLoad} /> : <EmptyState title="Belum ada data workload." />}
             </div>
-            {deadlines.overdue.length > 0 ? (
-              <div className="mt-2">
-                <p className="text-[0.82rem] font-semibold text-muted">Overdue-content ({deadlines.overdueCount})</p>
-                <div className="rounded-[12px] border border-danger/30 bg-surface/70">
-                  {deadlines.overdue.map((r) => <ActionItemRow key={originalIndex(r)} item={{ title: str(r["Judul Konten"]), pic: str(r["PIC"]), deadline: str(r["Tanggal Deadline"]), platform: "", status: str(r["PROSES"]) }} />)}
-                </div>
-              </div>
-            ) : null}
 
             <Divider />
 
-            {/* §9 Publishing Tracker */}
+            {/* §6 Publishing Tracker — compact 5-across */}
             <SectionHeader title="Publishing Tracker" subtitle="IG / TikTok / YT dipublikasi, cross-platform, dan selesai-belum dipublikasi." />
-            <MetricRow>
+            <div className={compactRow}>
               <MetricCard icon="📸" label="Instagram Published" value={String(publishing.ig)} />
               <MetricCard icon="🎵" label="TikTok Published" value={String(publishing.tiktok)} />
               <MetricCard icon="▶️" label="YouTube Published" value={String(publishing.yt)} />
               <MetricCard icon="🔀" label="Cross-platform" value={String(publishing.crossPlatform)} />
               <MetricCard icon="📤" label="Finished, Unpublished" value={String(publishing.finishedNotPublished)} />
-            </MetricRow>
+            </div>
 
             <Divider />
 
@@ -1545,11 +1736,15 @@ export function SosmedDashboard({ rows, planRows = [], isEditor, onRefresh }: So
 
             <Divider />
 
-            {/* §11 Output Trend */}
+            {/* §7 Output Trend — interactive dependency-free SVG */}
             <SectionHeader title="Output Trend" subtitle="Produksi per minggu (planned vs done) berdasarkan minggu deadline." />
-            <ChartContainer data={trend} label="Planned (abu) vs Done (hijau) per minggu">
-              {trend.length ? <TrendBars points={trend} /> : <EmptyState title="Belum ada data deadline untuk tren." />}
-            </ChartContainer>
+            {trend.length ? (
+              <InteractiveOutputTrend points={trend} />
+            ) : (
+              <div className="relative rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)] backdrop-blur-[8px]">
+                <EmptyState title="Belum ada data deadline untuk tren." />
+              </div>
+            )}
 
             <Divider />
 

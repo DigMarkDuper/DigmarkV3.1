@@ -213,6 +213,33 @@ function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
+/**
+ * §1.2 — Default scope for the Bulan Deadline filter: a Set containing ONLY the
+ * LATEST deadline month present in `rows` (period with the max deadline date).
+ * Falls back to all months when no deadline parses, so the page never opens
+ * empty. Manual month selection still works afterwards (filter is just prefilled).
+ * Pure and `today`-free (latest period is a property of the data, not the clock).
+ *
+ * NOTE: the returned label is computed from the row's RAW deadline string via
+ * `deadlineMonth(row)` (the same helper `sosmedMonths`/`filterRows` group by), so
+ * it is byte-for-byte the key used in `months`. `monthLabel(Date)` returns "" —
+ * `toDatetime` cannot re-parse a JS Date object — so the label must come from the
+ * source string, never the parsed `Date`.
+ */
+export function latestDeadlineMonthSet(months: string[], rows: Row[]): Set<string> {
+  let best: Date | null = null;
+  let bestLabel = "";
+  for (const r of rows) {
+    const d = deadlineDate(r);
+    if (d && (best === null || d > best)) {
+      best = d;
+      bestLabel = deadlineMonth(r);
+    }
+  }
+  if (best === null) return new Set(months);          // no parseable deadline → all
+  return bestLabel !== "" ? new Set([bestLabel]) : new Set(months);
+}
+
 function sameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
