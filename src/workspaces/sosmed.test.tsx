@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { SosmedDashboard, selectionSummary } from "@/workspaces/SosmedDashboard";
+import { selectionSummary } from "@/workspaces/sosmedUiShared";
+import { SosmedPlanningDashboard } from "@/workspaces/SosmedPlanningDashboard";
+import { SosmedReportingDashboard } from "@/workspaces/SosmedReportingDashboard";
+import { SosmedLanding } from "@/workspaces/SosmedLanding";
 import {
   SOSMED_BOOL_COLS,
   SOSMED_TEXT_COLS,
@@ -251,32 +254,58 @@ describe("PATCH path (mock source) — editor contract", () => {
   });
 });
 
-describe("SosmedDashboard (react-dom/server, no browser)", () => {
-  it("renders hero, metrics, workload, editor, and save control for an editor", () => {
-    const html = renderToStaticMarkup(<SosmedDashboard rows={FIXTURE} isEditor onRefresh={() => {}} />);
+describe("SosmedLanding (react-dom/server, no browser)", () => {
+  it("renders the two choice cards with landing copy and route links", () => {
+    const html = renderToStaticMarkup(<SosmedLanding />);
     expect(html).toContain("Social Media");
-    expect(html).toContain("Production Overview");
-    expect(html).toContain("Workload per PIC");
+    expect(html).toContain("Planning Social Media");
+    expect(html).toContain("Reporting &amp; Production");
+    expect(html).toContain("/sosmed/planning");
+    expect(html).toContain("/sosmed/reporting");
+    // Perencanaan: konten yang akan dibuat. Reporting: hasil yang sudah terjadi.
+    expect(html).toContain("Perencanaan");
+    // static — no filter dims, no explorer popovers on the landing.
+    expect((html.match(/aria-haspopup=\"listbox\"/g) ?? []).length).toBe(0);
+  });
+
+  it("landing needs no data props but may mention section names in card copy", () => {
+    const html = renderToStaticMarkup(<SosmedLanding />);
+    expect(html).toContain("Planning Social Media");
+    // Landing is static — no metric cards / no analytics values rendered.
+    expect(html).not.toContain("Total Planned");
+    expect(html).not.toContain("Simpan Perubahan");
+    expect(html).not.toContain("Master Content Data Explorer");
+  });
+});
+
+describe("SosmedPlanningDashboard (react-dom/server, no browser)", () => {
+  it("renders planning sections, editor save, and + Content Plan for an editor", () => {
+    const html = renderToStaticMarkup(<SosmedPlanningDashboard rows={FIXTURE} planRows={[]} isEditor onRefresh={() => {}} />);
+    expect(html).toContain("Social Media");
+    expect(html).toContain("Total Planned");
+    expect(html).toContain("Content Plan Storage");
+    expect(html).toContain("Content Calendar");
     expect(html).toContain("Master Content Data Explorer");
     expect(html).toContain("Simpan Perubahan");
-    expect(html).toContain("Hutang Post IG");
+    expect(html).toContain("+ Content Plan");
+    // calendar + list tabs
+    expect(html).toContain("Kalender");
+    expect(html).toContain("Daftar");
   });
 
   it("renders read-only (no save control) for a viewer", () => {
-    const html = renderToStaticMarkup(<SosmedDashboard rows={FIXTURE} isEditor={false} onRefresh={() => {}} />);
+    const html = renderToStaticMarkup(<SosmedPlanningDashboard rows={FIXTURE} planRows={[]} isEditor={false} onRefresh={() => {}} />);
     expect(html).toContain("Master Content Data Explorer");
-    // The subtitle mentions 'Simpan Perubahan' too, but the SAVE BUTTON (💾 prefix)
-    // must be absent for a viewer (server also 403s viewer PATCH).
     expect(html).not.toContain("💾 Simpan Perubahan");
   });
 
   it("renders the empty guard when no PROSES column / no data", () => {
     const noProses = [{ "Kode Konten": "K1", Output: "Video", PIC: "Ejak" }]; // no PROSES key
-    const html = renderToStaticMarkup(<SosmedDashboard rows={noProses} isEditor onRefresh={() => {}} />);
+    const html = renderToStaticMarkup(<SosmedPlanningDashboard rows={noProses} isEditor onRefresh={() => {}} />);
     expect(html).toContain("Data sosmed tidak tersedia atau kosong.");
     expect(html).not.toContain("Master Content Data Explorer");
 
-    const emptyRows = renderToStaticMarkup(<SosmedDashboard rows={[]} isEditor onRefresh={() => {}} />);
+    const emptyRows = renderToStaticMarkup(<SosmedPlanningDashboard rows={[]} isEditor onRefresh={() => {}} />);
     expect(emptyRows).toContain("Data sosmed tidak tersedia atau kosong.");
   });
 });
@@ -514,34 +543,50 @@ describe("Content Operations Dashboard derivations", () => {
       .toEqual(["A", "B"]);
   });
 
-  it("SosmedDashboard renders new sections alongside legacy ones", () => {
-    const html = renderToStaticMarkup(<SosmedDashboard rows={FIXTURE} isEditor onRefresh={() => {}} />);
-    for (const t of ["Production Overview", "Production Funnel", "Status Breakdown", "Workload per PIC", "Deadline Monitoring", "Publishing Tracker", "Content Strategy", "Output Trend", "Action Required", "Master Content Data Explorer", "Content Planning", "Kalender", "Total Planned", "Completion Rate"]) {
+  it("SosmedReportingDashboard renders the reporting section set; planning excludes heavy analytics", () => {
+    const html = renderToStaticMarkup(<SosmedReportingDashboard rows={FIXTURE} isEditor onRefresh={() => {}} />);
+    for (const t of ["Production Overview", "Production Funnel", "Status Breakdown", "Workload per PIC", "Deadline Monitoring", "Publishing Tracker", "Content Strategy", "Output Trend", "Action Required"]) {
       expect(html).toContain(t);
     }
-    expect(html).toContain("+ Content Plan"); // header action cluster
-    expect(html).toContain("💾 Simpan Perubahan"); // editor still present
+    expect(html).toContain("Total Planned");
+    expect(html).toContain("Completion Rate");
+    expect(html).toContain("Hutang Post IG");
+    // reporting excludes planner/calendar/master:
+    expect(html).not.toContain("Content Plan Storage");
+    expect(html).not.toContain("Master Content Data Explorer");
+    expect(html).not.toContain("+ Content Plan");
   });
 });
 
 describe("Sosmed filter bar — searchable multi-select dropdown (redesign)", () => {
-  it("renders the six GLOBAL searchable dropdown triggers (section-1 filter) + six explorer filters", () => {
-    const html = renderToStaticMarkup(<SosmedDashboard rows={FIXTURE} isEditor onRefresh={() => {}} />);
-    // 6 global filter triggers + 6 explorer filter triggers = 12 listbox popovers.
-    expect((html.match(/aria-haspopup="listbox"/g) ?? []).length).toBe(12);
-    for (const t of ["PIC", "Bulan Deadline", "Status", "Platform", "Content Pillar", "Format"]) {
+  it("PLANNING renders five GLOBAL filter dims (Bulan/PIC/Platform/Pillar/Format, NO Status) + six explorer filters", () => {
+    const html = renderToStaticMarkup(<SosmedPlanningDashboard rows={FIXTURE} planRows={[]} isEditor onRefresh={() => {}} />);
+    // 5 global filter triggers + 6 explorer filter triggers = 11 listbox popovers (no Status on planning).
+    expect((html.match(/aria-haspopup="listbox"/g) ?? []).length).toBe(11);
+    for (const t of ["PIC", "Bulan Deadline", "Platform", "Content Pillar", "Format"]) {
       expect(html).toContain(`aria-label="${t}"`);
     }
-    // Default scope = LATEST deadline period (brief #1): FIXTURE has two months
-    // (September/October 2026), latest = October 2026 -> Bulan Deadline is a
-    // single-month active filter, so an Active Filter summary is shown. The other
-    // five dimensions stay all-selected (their chips read "Semua").
+    // planning's global dims are Bulan/PIC/Platform/Pillar/Format (NO Status); the only
+    // "Status" listbox on planning is the explorer's own scoped filter (1 occurrence).
+    expect((html.match(/aria-label="Status"/g) ?? []).length).toBe(1);
+    // Default scope = LATEST deadline period (October 2026) -> Bulan is a single-month active filter.
     expect(html).toContain("Semua");
-    expect(html).toContain("1 dipilih"); // Bulan Deadline single latest-month scope
+    expect(html).toContain("1 dipilih");
     expect(html).toContain("Reset");
     expect(html).toContain("Filter Aktif");
     expect(html).toContain("Hapus Semua");
     expect((html.match(/max-h-\[160px\]/g) ?? []).length).toBe(0);
+  });
+
+  it("REPORTING renders five GLOBAL filter dims (Periode/PIC/Platform/Status/Format, NO Pillar), no explorer", () => {
+    const html = renderToStaticMarkup(<SosmedReportingDashboard rows={FIXTURE} isEditor onRefresh={() => {}} />);
+    // 5 global filter triggers only (no explorer on reporting).
+    expect((html.match(/aria-haspopup="listbox"/g) ?? []).length).toBe(5);
+    for (const t of ["PIC", "Periode", "Platform", "Status", "Format"]) {
+      expect(html).toContain(`aria-label="${t}"`);
+    }
+    // reporting has NO global Content Pillar dimension.
+    expect(html).not.toContain(`aria-label="Content Pillar"`);
   });
 
   it("selectionSummary derives Semua / N dipilih / active / allChecked from the state contract", () => {
@@ -587,20 +632,21 @@ describe("Sosmed revisions — latest-period default scope + reworked layout (§
     expect(latestDeadlineMonthSet([], FIXTURE)).toEqual(new Set(["October 2026"]));
   });
 
-  it("layout: Deadline Monitoring renders ABOVE Production Overview (primary-band move §5.1)", () => {
-    const html = renderToStaticMarkup(<SosmedDashboard rows={FIXTURE} isEditor onRefresh={() => {}} />);
+  it("reporting layout: Production Overview renders ABOVE Deadline Monitoring (spec §4.3 order #2→#3)", () => {
+    const html = renderToStaticMarkup(<SosmedReportingDashboard rows={FIXTURE} isEditor onRefresh={() => {}} />);
     const dmIdx = html.indexOf("Prioritas utama: Overdue, jatuh tempo hari ini/minggu ini, dan selesai.");
     const poIdx = html.indexOf("Ringkasan produksi: planned, done, in-progress, overdue, dan completion-rate.");
-    expect(dmIdx).toBeGreaterThan(-1);
-    expect(poIdx).toBeGreaterThan(dmIdx);
-    // the low band (§8) is NOT duplicated on the page — only one Deadline Monitoring section header.
+    expect(poIdx).toBeGreaterThan(-1);
+    expect(dmIdx).toBeGreaterThan(poIdx);
+    // Deadline Monitoring appears exactly once (reporting only — planning has none).
     expect((html.match(/Deadline Monitoring/g) ?? []).length).toBe(1);
   });
 
-  it("layout: compact 5-across grids for Production Overview (2 rows) + Publishing Tracker, keeping every metric (§5.2/§8.2)", () => {
-    const html = renderToStaticMarkup(<SosmedDashboard rows={FIXTURE} isEditor onRefresh={() => {}} />);
-    // 2 overview rows + publishing tracker = 3 occurrences of the xl:5-cols utility.
-    expect((html.match(/xl:grid-cols-5/g) ?? []).length).toBe(3);
+  it("reporting layout: compact 5-across grids for Production Overview (2 rows) + Publishing Tracker, keeping every metric (§5.2/§8.2)", () => {
+    const html = renderToStaticMarkup(<SosmedReportingDashboard rows={FIXTURE} isEditor onRefresh={() => {}} />);
+    // 2 overview rows + publishing tracker = 3 compact-row uses of xl:5-cols,
+    // plus the reporting 5-dim filter bar (also xl:grid-cols-5) = 4 total.
+    expect((html.match(/xl:grid-cols-5/g) ?? []).length).toBe(4);
     for (const t of ["Total Planned", "Total Done", "In Progress", "Overdue", "Completion Rate",
       "Video Selesai", "Design Selesai", "Hutang Post IG", "Hutang Post TikTok", "Hutang Post YT",
       "Instagram Published", "TikTok Published", "YouTube Published", "Cross-platform", "Finished, Unpublished"]) {
@@ -608,8 +654,8 @@ describe("Sosmed revisions — latest-period default scope + reworked layout (§
     }
   });
 
-  it("layout: Funnel|Breakdown and Workload|PIC render side-by-side 50/50 grids (§7/§8.1)", () => {
-    const html = renderToStaticMarkup(<SosmedDashboard rows={FIXTURE} isEditor onRefresh={() => {}} />);
+  it("reporting layout: Funnel|Breakdown and Workload|PIC render side-by-side 50/50 grids (§7/§8.1)", () => {
+    const html = renderToStaticMarkup(<SosmedReportingDashboard rows={FIXTURE} isEditor onRefresh={() => {}} />);
     // two 50/50 rows share the same splitRow utility.
     expect((html.match(/xl:grid-cols-\[minmax\(0,1fr\)_minmax\(0,1fr\)\]/g) ?? []).length).toBe(2);
     expect(html).toContain("Production Funnel &amp; Status Breakdown");
@@ -617,8 +663,8 @@ describe("Sosmed revisions — latest-period default scope + reworked layout (§
     expect(html).toContain("Monitoring dan kapasitas per PIC");
   });
 
-  it("renders the interactive Output Trend: Indonesian legend + zoom toolbar + ariaLabels (§10)", () => {
-    const html = renderToStaticMarkup(<SosmedDashboard rows={FIXTURE} isEditor onRefresh={() => {}} />);
+  it("reporting: renders the interactive Output Trend: Indonesian legend + zoom toolbar + ariaLabels (§10)", () => {
+    const html = renderToStaticMarkup(<SosmedReportingDashboard rows={FIXTURE} isEditor onRefresh={() => {}} />);
     // FIXTURE (October scope) yields ≥1 trend week -> interactive chart, not the empty state.
     expect(html).toContain("Tren output per minggu — seri Rencana dan Selesai");
     expect(html).toContain("Rencana");
@@ -628,9 +674,9 @@ describe("Sosmed revisions — latest-period default scope + reworked layout (§
     expect(html).not.toContain("Belum ada data deadline untuk tren."); // has data
   });
 
-  it("renders the Output Trend empty-state card when no deadline week parses (§10.3)", () => {
+  it("reporting: renders the Output Trend empty-state card when no deadline week parses (§10.3)", () => {
     const noTrend = [row({ "Kode Konten": "K1", PROSES: "DONE", "Tanggal Deadline": "bad" })];
-    const html = renderToStaticMarkup(<SosmedDashboard rows={noTrend} isEditor onRefresh={() => {}} />);
+    const html = renderToStaticMarkup(<SosmedReportingDashboard rows={noTrend} isEditor onRefresh={() => {}} />);
     expect(html).toContain("Belum ada data deadline untuk tren.");
   });
 });

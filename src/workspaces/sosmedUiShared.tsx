@@ -1,91 +1,46 @@
-/**
- * SosmedDashboard — presentational body of the Sosmed workspace (port of
- * pages/2_Sosmed.py), redesigned into the "Social Media Command Center"
- * per docs/sosmed_command_center_ui_spec.md (NEO spec, REX implementation).
- *
- * Given normalized rows from GET /api/tables/sosmed plus the new content_plan
- * rows (GET /api/tables/content_plan), renders 12 body sections:
- *   1 Filter Data (global filter card)          7 Workload per PIC
- *   2 Production Overview + legacy KPIs         8 Deadline Monitoring
- *   3 Content Planning (Kalender/Daftar + modal) 9 Publishing Tracker
- *   4 Production Funnel                         10 Content Strategy
- *   5 Status Breakdown                          11 Output Trend
- *   6 Action Required                           12 Master Content Data EXPLORER
- *
- * New capabilities:
- *   - header action cluster: "+ Content Plan" (opens §4.1 modal) + "Refresh Data"
- *   - Content Planner modal -> POST /api/tables/content_plan (one row)
- *   - Calendar + List views over the §1-filtered rows (Kalender / Daftar)
- *   - Content Plan Storage panel with "+ Tambah ke Produksi" (plan -> sosmed)
- *   - Master Content Data EXPLORER: debounced search, pagination (PAGE_SIZE 15),
- *     7 filters + Deadline single-select + Reset Filter, column management,
- *     fullscreen, row-detail drawer, inline editor + page-slice Save
- *
- * All derivations live in @/workspaces/sosmed (pure, unit-tested); this
- * component maps them to the design system. Writes go ONLY through
- * POST/PATCH /api/tables/<key> — never Sheets in the browser. The editor
- * contract (diffPatches + per-cell PATCH, real booleans) is unchanged.
- */
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+/**
+ * SosmedUiShared — sosmed-owned shared PRESENTATIONAL module.
+ *
+ * The ~19 presentational helpers previously local to the monolithic
+ * SosmedDashboard.tsx now live here, imported by BOTH sub-dashboards
+ * (SosmedPlanningDashboard, SosmedReportingDashboard) and the shared
+ * SosmedGates/SosmedLanding where used (docs/sosmed_split_ui_spec.md §5).
+ *
+ * This module is stateless-and-presentational (except browser-only UI state
+ * like popover/query state owned by its own components, unchanged from the
+ * monolithic page). Shared app components are imported unchanged — never
+ * edited. All pure derivations still come from @/workspaces/sosmed.
+ *
+ * Calendar-only helpers remain local to SosmedPlanningDashboard (they are
+ * tightly coupled to that dashboard's calendar state).
+ */
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { Row } from "@/server/adapter/source";
-import { patchJson, postJson } from "@/lib/api-client";
-import { Divider } from "@/components/ui/Divider";
 import { Button } from "@/components/ui/Button";
-import { SectionHeader } from "@/components/sections/SectionHeader";
-import { MetricCard } from "@/components/metrics/MetricCard";
-import { ChartContainer } from "@/components/charts/ChartContainer";
-import { ModuleHero } from "@/components/layout/ModuleHero";
-import { EmptyState } from "@/components/sections/EmptyState";
 import { Select, Checkbox } from "@/components/ui/Field";
 import { PALETTE, formatPercent } from "@/components/ui-common";
 import {
-  SOSMED_BOOL_COLS,
-  SOSMED_TEXT_COLS,
-  PROSES_OPTIONS,
-  actionRequired,
-  buildPlanPayload,
-  buildProductionRow,
-  calendarCells,
-  calendarDefaultMonth,
-  contentKode,
-  contentStrategy,
-  deadlineBucket,
-  deadlineDate,
-  deadlineMonitor,
-  diffPatches,
-  distinctValues,
-  filterRows,
-  latestDeadlineMonthSet,
-  outputTrend,
-  picOptions,
-  picWorkload,
-  productionFunnel,
-  productionKodeExists,
-  productionOverview,
-  publishingTracker,
-  searchContents,
-  sosmedMetrics,
-  sosmedMonths,
-  statusBreakdown,
-  truthy,
-  paginationWindow,
-  type ProdStage,
-  type SosmedPatch,
-  type DeadlineBucket,
   COLUMN_DEFS,
   EXPLORER_DEFAULT_COLS,
+  PROSES_OPTIONS,
+  paginationWindow,
+  truthy,
+  type ProdStage,
 } from "@/workspaces/sosmed";
 
-function str(v: unknown): string {
+/** Coerce a cell value to a display string (emo-dash on empty handled by callers). */
+export function str(v: unknown): string {
   return v === null || v === undefined ? "" : String(v);
 }
 
-/** §5.2/§8.2 — compact 5-across grid (xl → 5 cards) for MetricCard chips. */
-const compactRow = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3";
+/** §8.2 — compact 5-across grid (xl → 5 cards) for MetricCard chips. */
+export const compactRow = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3";
 
-/** §7/§8.1 — 50/50 responsive 2-col grid (minmax(0,1fr) prevents horizontal overflow). */
-const splitRow = "grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]";
+/** §8.1 — 50/50 responsive 2-col grid (minmax(0,1fr) prevents horizontal overflow). */
+export const splitRow = "grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]";
 
 /** Pure trigger-state derivation for a dropdown — testable without rendering. */
 export function selectionSummary(
@@ -100,11 +55,8 @@ export function selectionSummary(
   };
 }
 
-/** Today, resolved once per mount — passed to derivations for deterministic date math. */
-const TODAY = new Date();
-
 /** PROSES status badge — gives DONE a real status treatment instead of plain text. */
-function ProsesBadge({ status }: { status: string }) {
+export function ProsesBadge({ status }: { status: string }) {
   const s = (status ?? "").trim().toUpperCase();
   const cls =
     s === "DONE"
@@ -122,10 +74,8 @@ function ProsesBadge({ status }: { status: string }) {
   );
 }
 
-/**
- * Plan Status Plan badge (§6.0): APPROVED/PLANNED/IDEA/DIPRODUKSI tones.
- */
-function PlanStatusBadge({ status }: { status: string }) {
+/** Plan Status Plan badge (§6.0): APPROVED/PLANNED/IDEA/DIPRODUKSI tones. */
+export function PlanStatusBadge({ status }: { status: string }) {
   const s = (status ?? "").trim().toUpperCase();
   let cls = "bg-muted/10 text-muted border-border";
   if (s === "APPROVED") cls = "bg-brand/10 text-brand-hover border-brand/30";
@@ -140,7 +90,7 @@ function PlanStatusBadge({ status }: { status: string }) {
 }
 
 /** §5.5 — mini progress bar for the optional "Process" column. */
-function ProcessBar({ status }: { status: string }) {
+export function ProcessBar({ status }: { status: string }) {
   const s = (status ?? "").trim().toUpperCase();
   const pct = s === "DONE" ? 100 : s === "ON PROGRESS" ? 60 : 10;
   return (
@@ -150,31 +100,12 @@ function ProcessBar({ status }: { status: string }) {
   );
 }
 
-/** §4.2 — Indonesian month title for the calendar cursor. */
-function monthTitleText(d: Date): string {
-  const months = [
-    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
-  ];
-  return `${months[d.getMonth()]} ${d.getFullYear()}`;
-}
-
-/** §4.2 — First day of the current month (calendar cursor initial state). */
-function firstOfToday(): Date {
-  return new Date(TODAY.getFullYear(), TODAY.getMonth(), 1);
-}
-
-/** Immutable month shift of a 1st-of-month cursor. */
-function shiftMonth(c: Date, delta: number): Date {
-  return new Date(c.getFullYear(), c.getMonth() + delta, 1);
-}
-
 /**
  * Compact searchable multi-select dropdown — parity with the previous filter
  * card. Selection round-trips through `selected`/`onToggle`/`onReplace`; the
  * panel never holds a copy. Single-open enforced via the shared `openMenu`.
  */
-function MultiSelectDropdown({
+export function MultiSelectDropdown({
   name, label, options, selected, onToggle, onReplace, hint, placeholder = "Cari…", className = "", openMenu, setOpenMenu,
 }: {
   name: string; label: string; options: string[]; selected: Set<string>;
@@ -294,7 +225,7 @@ function MultiSelectDropdown({
 }
 
 /** Dependency-free stacked horizontal bar (V3 px.bar barmode="stack"). */
-function WorkloadBars({ items }: { items: { pic: string; selesai: number; hutang: number }[] }) {
+export function WorkloadBars({ items }: { items: { pic: string; selesai: number; hutang: number }[] }) {
   const max = Math.max(...items.map((i) => i.selesai + i.hutang), 1);
   const rowH = 46;
   const chartH = Math.max(items.length * rowH + 24, 72);
@@ -322,7 +253,7 @@ function WorkloadBars({ items }: { items: { pic: string; selesai: number; hutang
 }
 
 /** Operational per-PIC workload table (capacity monitoring, NOT a ranking). */
-function PicCapacityRows({ items }: { items: { pic: string; total: number; done: number; pending: number; overdue: number; completionPct: number | null }[] }) {
+export function PicCapacityRows({ items }: { items: { pic: string; total: number; done: number; pending: number; overdue: number; completionPct: number | null }[] }) {
   return (
     <div className="overflow-x-auto rounded-[12px] border border-border bg-surface/70">
       <table className="w-full border-collapse text-left">
@@ -356,7 +287,7 @@ function PicCapacityRows({ items }: { items: { pic: string; total: number; done:
 }
 
 /** Dependency-free funnel bars: Planned → … → Published. */
-function FunnelBars({ stages }: { stages: { key: ProdStage; label: string; count: number }[] }) {
+export function FunnelBars({ stages }: { stages: { key: ProdStage; label: string; count: number }[] }) {
   const max = Math.max(...stages.map((s) => s.count), 1);
   const rowH = 42;
   const chartH = Math.max(stages.length * rowH + 24, 96);
@@ -385,15 +316,14 @@ function FunnelBars({ stages }: { stages: { key: ProdStage; label: string; count
 }
 
 /**
- * §1/§10 — Interactive Output Trend (dependency-free hand-rolled SVG).
+ * §10 — Interactive Output Trend (dependency-free hand-rolled SVG).
  * Series: Planned (line+area, PALETTE.muted/grid) and Done (line+area,
- * PALETTE.success). Interactions required by the brief: hover tooltip (HTML,
- * Indonesian: Rencana/Selesai/Delta + crosshair), wheel AND +/− zoom (scale
- * 1..8 around the hovered/focused week), drag pan (clamped), Reset View, and
- * legend toggles (at least one series always visible). Zero charting library.
+ * PALETTE.success). Interactions: hover tooltip (Indonesian), wheel AND +/−
+ * zoom (scale 1..8 around the hovered/focused week), drag pan (clamped),
+ * Reset View, and legend toggles (at least one series always visible).
  * `outputTrend()` derivation in sosmed.ts is untouched.
  */
-function InteractiveOutputTrend({ points }: { points: { label: string; planned: number; done: number }[] }) {
+export function InteractiveOutputTrend({ points }: { points: { label: string; planned: number; done: number }[] }) {
   const n = points.length;
   const [scale, setScale] = useState(1);
   const [windowStart, setWindowStart] = useState(0);
@@ -595,7 +525,7 @@ function InteractiveOutputTrend({ points }: { points: { label: string; planned: 
 }
 
 /** A horizontal distribution bar for a strategy bucket. */
-function StrategyBar({ value, count, sharePct, fill }: { value: string; count: number; sharePct: number; fill: string }) {
+export function StrategyBar({ value, count, sharePct, fill }: { value: string; count: number; sharePct: number; fill: string }) {
   return (
     <div className="flex items-center gap-2">
       <span className="w-28 shrink-0 truncate text-[0.82rem] font-medium text-ink">{value}</span>
@@ -609,7 +539,7 @@ function StrategyBar({ value, count, sharePct, fill }: { value: string; count: n
 }
 
 /** Small colour chip + count (used inside deadline list). */
-function countChip(label: string, count: number, tone: string) {
+export function countChip(label: string, count: number, tone: string) {
   return (
     <div className={`flex items-center justify-between rounded-[12px] border px-3 py-2 ${tone}`}>
       <span className="text-[0.85rem] font-semibold text-ink">{label}</span>
@@ -619,7 +549,7 @@ function countChip(label: string, count: number, tone: string) {
 }
 
 /** Compact content row: title, PIC, deadline, platform/status. */
-function ActionItemRow({ item }: { item: { title: string; pic: string; deadline: string; platform: string; status: string } }) {
+export function ActionItemRow({ item }: { item: { title: string; pic: string; deadline: string; platform: string; status: string } }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-divider py-2">
       <span className="min-w-0 flex-1 truncate text-[0.87rem] font-semibold text-ink" title={item.title}>{item.title}</span>
@@ -634,7 +564,7 @@ function ActionItemRow({ item }: { item: { title: string; pic: string; deadline:
 }
 
 /** Filter card header treatment (funnel icon + label). */
-function filterCardHeader(label: string) {
+export function filterCardHeader(label: string) {
   return (
     <div className="mb-2 flex items-center gap-2 text-[0.82rem] font-semibold text-muted">
       <svg aria-hidden viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -657,7 +587,7 @@ const FIELD_BASE =
   "focus:ring-2 focus:ring-brand focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
 
 /** Native date input (emit/read ISO YYYY-MM-DD; sheet stores a date value). */
-function DateField({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+export function DateField({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
     <input
       type="date"
@@ -670,7 +600,7 @@ function DateField({ value, onChange, placeholder }: { value: string; onChange: 
 }
 
 /** Labelled field wrapper used by the Planner grid (label above control). */
-function PlannerField({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+export function PlannerField({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
       <label className="text-[0.82rem] font-semibold text-muted">{label}{required ? <span className="text-danger"> *</span> : null}</label>
@@ -680,7 +610,7 @@ function PlannerField({ label, required, children }: { label: string; required?:
 }
 
 /** §2.1/§4.1 — the Content Planner modal (child of the §3 component). */
-function ContentPlannerModal({
+export function ContentPlannerModal({
   open, options, form, setForm, planFormValid, saving, planError,
   onSave, onClose,
 }: {
@@ -774,14 +704,14 @@ function ContentPlannerModal({
  *
  * Rendered TWICE from one shared state (inline + fullscreen) so the two never
  * diverge (§5.9). It is presentational: all explorer state (search, page,
- * visible columns, filters, draft) lives in the parent SosmedDashboard and is
+ * visible columns, filters, draft) lives in the parent dashboard and is
  * threaded in as props. `embedded` toggles inline chrome (section card) vs
  * fullscreen chrome; the toolbar/search/filters/table/pagination are identical.
  * ------------------------------------------------------------------------ */
 
-const EXPLORER_PAGE_SIZE = 15;
+export const EXPLORER_PAGE_SIZE = 15;
 
-interface ExplorerFilterDim {
+export interface ExplorerFilterDim {
   name: string;
   label: string;
   options: string[];
@@ -790,12 +720,21 @@ interface ExplorerFilterDim {
   onReplace: (vals: Iterable<string>) => void;
 }
 
-const btnPage =
+export const btnPage =
   "h-8 min-w-8 rounded-[8px] border border-border bg-surface-input px-2 text-[0.8rem] font-semibold text-ink disabled:opacity-40 disabled:cursor-not-allowed hover:border-brand/40";
-const btnReset =
+export const btnReset =
   "inline-flex items-center justify-center gap-2 rounded-[10px] border border-border bg-surface-input px-3 py-1.5 text-[0.82rem] font-semibold text-brand transition-colors hover:border-brand/40 hover:text-brand-hover";
 
-function ContentExplorer({
+const EXPLORER_DEADLINES: { value: string; label: string }[] = [
+  { value: "ALL", label: "Semua" },
+  { value: "overdue", label: "Overdue" },
+  { value: "dueToday", label: "Due Today" },
+  { value: "dueThisWeek", label: "Due This Week" },
+  { value: "future", label: "Future" },
+  { value: "completed", label: "Completed" },
+];
+
+export function ContentExplorer({
   rows,
   isEditor,
   embedded,
@@ -855,14 +794,6 @@ function ContentExplorer({
     ? "Menampilkan 0 konten"
     : `Menampilkan ${start}–${end} dari ${rows.length} konten`;
   const pageWindows = paginationWindow(page, totalPages);
-  const deadlines: { value: string; label: string }[] = [
-    { value: "ALL", label: "Semua" },
-    { value: "overdue", label: "Overdue" },
-    { value: "dueToday", label: "Due Today" },
-    { value: "dueThisWeek", label: "Due This Week" },
-    { value: "future", label: "Future" },
-    { value: "completed", label: "Completed" },
-  ];
   const colDefOf = (key: string) => COLUMN_DEFS.find((d) => d.key === key)!;
 
   const renderCell = (row: Row, key: string) => {
@@ -976,7 +907,7 @@ function ContentExplorer({
             <label className="text-[0.82rem] font-semibold text-muted">Deadline</label>
             <select value={dlSel} onChange={(e) => setDlSel(e.target.value)} aria-label="Deadline"
               className="w-full h-9 rounded-[10px] border border-border bg-surface-input px-2 text-[0.82rem] text-ink focus:border-brand focus:ring-2 focus:ring-brand focus:outline-none">
-              {deadlines.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              {EXPLORER_DEADLINES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
           <div className="flex items-end">
@@ -1050,7 +981,7 @@ function ContentExplorer({
  * Row-detail drawer (§5.8) — read-only field grid + editor controls.
  * ------------------------------------------------------------------------ */
 
-const DETAIL_FIELDS: { label: string; source: string; kind: string }[] = [
+export const DETAIL_FIELDS: { label: string; source: string; kind: string }[] = [
   { label: "Kode Konten", source: "Kode Konten", kind: "mono" },
   { label: "Tanggal Deadline", source: "Tanggal Deadline", kind: "text" },
   { label: "Tanggal Posting", source: "Tanggal Posting", kind: "text" },
@@ -1069,7 +1000,7 @@ const DETAIL_FIELDS: { label: string; source: string; kind: string }[] = [
   { label: "YT", source: "YT", kind: "bool" },
 ];
 
-function RowDetailDrawer({
+export function RowDetailDrawer({
   row, rowIndex, onClose, isEditor, editing, setEditing, pics, draft, setCell, saving, runSave, saveMsg,
 }: {
   row: Row; rowIndex: number; onClose: () => void; isEditor: boolean;
@@ -1157,651 +1088,36 @@ function RowDetailDrawer({
   );
 }
 
-export interface SosmedDashboardProps {
-  rows: Row[];
-  /** contentType_plan rows (from GET /api/tables/content_plan). */
-  planRows?: Row[];
-  /** True when the signed-in user may edit (GET /api/auth/me role === editor). */
-  isEditor: boolean;
-  onRefresh?: () => void;
-}
-
-export function SosmedDashboard({ rows, planRows = [], isEditor, onRefresh }: SosmedDashboardProps) {
-  const months = useMemo(() => sosmedMonths(rows), [rows]);
-  const pics = useMemo(() => picOptions(rows), [rows]);
-  const statusOptions = useMemo(() => ["Belum Dimulai", "Dalam Produksi", "Review", "Revision", "Done", "Published"], []);
-  const platformOptions = useMemo(() => distinctValues(rows, "Platform"), [rows]);
-  const pillarOptions = useMemo(() => distinctValues(rows, "Konten Pillar"), [rows]);
-  const formatOptions = useMemo(() => distinctValues(rows, "Output"), [rows]);
-  const planOptions = useMemo(() => {
-    const collect = (col: string) => distinctValues(planRows.length ? planRows : [], col);
-    const priority = distinctValues(planRows, "Priority");
-    return {
-      pillar: collect("Content Pillar"), format: collect("Format"), platform: collect("Platform"), pic: collect("PIC"),
-      priority: priority.length ? priority : ["High", "Medium", "Low"],
-    };
-  }, [planRows]);
-
-  // --- global section-1 filter (existing behavior, default all selected) ---
-  const [picSel, setPicSel] = useState<Set<string>>(() => new Set(pics));
-  const [monthSel, setMonthSel] = useState<Set<string>>(() => latestDeadlineMonthSet(months, rows));
-  const [statusSel, setStatusSel] = useState<Set<string>>(() => new Set(statusOptions));
-  const [platformSel, setPlatformSel] = useState<Set<string>>(() => new Set(platformOptions));
-  const [pillarSel, setPillarSel] = useState<Set<string>>(() => new Set(pillarOptions));
-  const [formatSel, setFormatSel] = useState<Set<string>>(() => new Set(formatOptions));
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
-
-  const resetAll = () => {
-    setPicSel(new Set(pics)); setMonthSel(latestDeadlineMonthSet(months, rows)); setStatusSel(new Set(statusOptions));
-    setPlatformSel(new Set(platformOptions)); setPillarSel(new Set(pillarOptions)); setFormatSel(new Set(formatOptions));
-    setOpenMenu(null);
-  };
-
-  const filterDims: {
-    name: string; label: string; hint?: string; className?: string; options: string[]; selected: Set<string>; set: (s: Set<string>) => void;
-  }[] = [
-    { name: "pic", label: "PIC", className: "md:col-span-1 xl:col-span-2", options: pics, selected: picSel, set: setPicSel },
-    { name: "month", label: "Bulan Deadline", hint: "tugas berdasarkan deadline", options: months, selected: monthSel, set: setMonthSel },
-    { name: "status", label: "Status", hint: "PROSES", options: statusOptions, selected: statusSel, set: setStatusSel },
-    { name: "platform", label: "Platform", options: platformOptions, selected: platformSel, set: setPlatformSel },
-    { name: "pillar", label: "Content Pillar", options: pillarOptions, selected: pillarSel, set: setPillarSel },
-    { name: "format", label: "Format", options: formatOptions, selected: formatSel, set: setFormatSel },
+/**
+ * §1.3 — Compact 3-item in-app sub-nav (Overview / Planning / Reporting),
+ * sibling of WorkspaceNav, workspace-owned markup with the active item
+ * matching the current route (usePathname). Rendered on the landing and both
+ * sub-pages inside the capped body container.
+ */
+export function SosmedSubNav() {
+  const pathname = usePathname();
+  const items = [
+    { href: "/sosmed", label: "Overview" },
+    { href: "/sosmed/planning", label: "Planning" },
+    { href: "/sosmed/reporting", label: "Reporting" },
   ];
-  const toggle = (set: Set<string>, v: string, setter: (s: Set<string>) => void) => {
-    const next = new Set(set);
-    if (next.has(v)) next.delete(v); else next.add(v);
-    setter(next);
-  };
-
-  const filtered = useMemo(
-    () => filterRows(rows, { pics: picSel, months: monthSel, statuses: statusSel, platforms: platformSel, pillars: pillarSel, formats: formatSel }),
-    [rows, picSel, monthSel, statusSel, platformSel, pillarSel, formatSel],
-  );
-  const metrics = useMemo(() => sosmedMetrics(filtered), [filtered]);
-  const overview = useMemo(() => productionOverview(filtered, TODAY), [filtered]);
-  const funnel = useMemo(() => productionFunnel(filtered), [filtered]);
-  const breakdown = useMemo(() => statusBreakdown(filtered), [filtered]);
-  const deadlines = useMemo(() => deadlineMonitor(filtered, TODAY), [filtered]);
-  const picLoad = useMemo(() => picWorkload(filtered, TODAY), [filtered]);
-  const publishing = useMemo(() => publishingTracker(filtered), [filtered]);
-  const strategy = useMemo(() => contentStrategy(filtered), [filtered]);
-  const trend = useMemo(() => outputTrend(filtered), [filtered]);
-  const actions = useMemo(() => actionRequired(filtered, TODAY), [filtered]);
-
-  // Map a row back to its ORIGINAL index in the UNFILTERED `rows` array — the
-  // slate-backed index used for PATCH rowIndex (sheet data row identity).
-  const originalIndex = (r: Row): number => {
-    const i = rows.indexOf(r);
-    if (i >= 0) return i;
-    return typeof r.__rowIndex === "number" ? r.__rowIndex : -1;
-  };
-
-  // --- shared editor draft + save (Explorer + detail drawer) ---
-  type Draft = Record<number, Record<string, string | boolean>>;
-  const [draft, setDraft] = useState<Draft>({});
-  const [saving, setSaving] = useState(false);
-  const [saveMsg, setSaveMsg] = useState<{ kind: "ok" | "err" | "info"; text: string } | null>(null);
-
-  const setCell = (rowIndex: number, col: string, value: string | boolean) => {
-    setDraft((d) => ({ ...d, [rowIndex]: { ...(d[rowIndex] ?? {}), [col]: value } }));
-    setSaveMsg(null);
-  };
-  const cellValue = (row: Row, col: string): unknown => {
-    const idx = originalIndex(row);
-    if (idx >= 0 && draft[idx] && draft[idx][col] !== undefined) return draft[idx][col];
-    return row[col];
-  };
-
-  /** Save iterates the CURRENT page slice (rows the user can see). */
-  const runSaveFor = async (targetRows: Row[]) => {
-    setSaveMsg(null);
-    const fullDraft: Draft = {};
-    for (const row of targetRows) {
-      const idx = originalIndex(row);
-      if (idx < 0) continue;
-      const edited = draft[idx] ?? {};
-      fullDraft[idx] = {
-        ...Object.fromEntries(SOSMED_BOOL_COLS.map((c) => [c, truthy(row[c])])),
-        ...Object.fromEntries(SOSMED_TEXT_COLS.map((c) => [c, str(row[c])])),
-        ...edited,
-      };
-    }
-    const patches = diffPatches(rows, fullDraft);
-    if (patches.length === 0) { setSaveMsg({ kind: "info", text: "Tidak ada perubahan." }); return; }
-    setSaving(true);
-    let ok = 0, err = 0;
-    for (const p of patches) {
-      try { await patchJson<SosmedPatch>("/api/tables/sosmed", p); ok++; }
-      catch { err++; }
-    }
-    if (ok > 0) onRefresh?.();
-    setSaving(false);
-    if (err > 0) setSaveMsg({ kind: "err", text: `⚠️ ${err} perubahan gagal.` });
-    else if (ok > 0) setSaveMsg({ kind: "ok", text: `✅ ${ok} perubahan tersimpan.` });
-    else setSaveMsg({ kind: "ok", text: "✅ 0 perubahan tersimpan." });
-  };
-
-  // --- content_plan (+ Add-to-Production) state ---
-  const [plannerOpen, setPlannerOpen] = useState(false);
-  const [planForm, setPlanForm] = useState<Record<string, string>>({ judul: "", publish: "", deadlineProduksi: "", pillar: "", format: "", platform: "", pic: "", brief: "", reference: "", priority: "", statusPlan: "IDEA" });
-  const setPlanField = (k: string, v: string) => setPlanForm((f) => ({ ...f, [k]: v }));
-  const [savingPlan, setSavingPlan] = useState(false);
-  const [planError, setPlanError] = useState<string | null>(null);
-  const [pushedSet, setPushedSet] = useState<Set<number>>(new Set());
-
-  const planFormValid = planForm.judul.trim() !== "" && planForm.publish.trim() !== "" && planForm.deadlineProduksi.trim() !== "";
-
-  const saveContentPlan = async () => {
-    setPlanError(null);
-    if (!planFormValid) { setPlanError("⚠️ Isi judul dan tanggal sebelum menyimpan."); return; }
-    setSavingPlan(true);
-    try {
-      await postJson("/api/tables/content_plan", buildPlanPayload({
-        judul: planForm.judul, publish: planForm.publish, deadlineProduksi: planForm.deadlineProduksi,
-        pillar: planForm.pillar, format: planForm.format, platform: planForm.platform, pic: planForm.pic,
-        brief: planForm.brief, reference: planForm.reference, priority: planForm.priority, statusPlan: planForm.statusPlan,
-      }));
-      setSavingPlan(false);
-      setPlannerOpen(false);
-      setPlanForm({ judul: "", publish: "", deadlineProduksi: "", pillar: "", format: "", platform: "", pic: "", brief: "", reference: "", priority: "", statusPlan: "IDEA" });
-      onRefresh?.();
-      setSaveMsg({ kind: "ok", text: "✅ Content plan tersimpan." });
-    } catch {
-      setSavingPlan(false);
-      setPlanError("⚠️ Gagal menyimpan. Coba lagi.");
-    }
-  };
-
-  /** §6.3 — is this plan row already pushed (session OR durable data)? */
-  const planIsPushed = (plan: Row, rowIndex: number): boolean => {
-    if (pushedSet.has(rowIndex)) return true;
-    const kode = contentKode(TODAY, rowIndex);
-    if (productionKodeExists(rows, kode)) return true;
-    return str(plan["Status Plan"]).trim().toUpperCase() === "DIPRODUKSI";
-  };
-
-  const addToProduction = async (plan: Row, rowIndex: number) => {
-    if (planIsPushed(plan, rowIndex)) { setSaveMsg({ kind: "info", text: "ℹ️ Sudah ditambahkan ke produksi." }); return; }
-    const kode = contentKode(TODAY, rowIndex);
-    try {
-      await postJson("/api/tables/sosmed", buildProductionRow(plan, TODAY, kode));
-      setPushedSet((prev) => new Set(prev).add(rowIndex));
-      // Durable lock: flip Status Plan -> DIPRODUKSI so a fresh reload hides the button.
-      try { await patchJson<SosmedPatch>("/api/tables/content_plan", { rowIndex, column: "Status Plan", value: "DIPRODUKSI" }); } catch { /* lock persisted best-effort; kode collision also guards */ }
-      onRefresh?.();
-      setSaveMsg({ kind: "ok", text: `✅ Ditambahkan ke produksi: ${str(plan["Judul / Ide Konten"] || plan["Judul Konten"])}.` });
-    } catch {
-      setSaveMsg({ kind: "err", text: "⚠️ Gagal menambahkan ke produksi." });
-    }
-  };
-
-  // --- §4 Content Planning tabs + calendar cursor + detail drawer ---
-  const [tab, setTab] = useState<"calendar" | "list">("calendar");
-  const [calCursor, setCalCursor] = useState(() => calendarDefaultMonth(filtered, TODAY));
-  const [detailRow, setDetailRow] = useState<Row | null>(null);
-  const [editingDetail, setEditingDetail] = useState(false);
-  const detailOpen = (row: Row) => { setEditingDetail(false); setSaveMsg(null); setDetailRow(row); };
-
-  const calendarRows = useMemo(
-    () => filtered.filter((r) => deadlineDate(r) !== null),
-    [filtered],
-  );
-  const cells = useMemo(() => calendarCells(calendarRows, calCursor.getFullYear(), calCursor.getMonth(), TODAY), [calendarRows, calCursor]);
-
-  // --- §5 explorer state (shared between inline + fullscreen) ---
-  const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
-  const [debouncedQ, setDebouncedQ] = useState("");
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedQ(query), 200);
-    return () => clearTimeout(t);
-  }, [query]);
-  // Search query change resets pagination to page 1 (event-handler, per §5.3).
-  const handleQuery = (v: string) => { if (v !== query) setPage(1); setQuery(v); };
-  const [visibleCols, setVisibleCols] = useState<string[]>(() => [...EXPLORER_DEFAULT_COLS]);
-  const [colMenuOpen, setColMenuOpen] = useState(false);
-  const [fullscreen, setFullscreen] = useState(false);
-  const [explPics, setExplPics] = useState<Set<string>>(() => new Set(pics));
-  const [explMonths, setExplMonths] = useState<Set<string>>(() => new Set(months));
-  const [explStatuses, setExplStatuses] = useState<Set<string>>(() => new Set(statusOptions));
-  const [explPlatforms, setExplPlatforms] = useState<Set<string>>(() => new Set(platformOptions));
-  const [explPillars, setExplPillars] = useState<Set<string>>(() => new Set(pillarOptions));
-  const [explFormats, setExplFormats] = useState<Set<string>>(() => new Set(formatOptions));
-  const [dlSel, setDlSel] = useState<string>("ALL");
-
-  const explorerFiltered = useMemo(
-    () => filterRows(rows, { pics: explPics, months: explMonths, statuses: explStatuses, platforms: explPlatforms, pillars: explPillars, formats: explFormats }),
-    [rows, explPics, explMonths, explStatuses, explPlatforms, explPillars, explFormats],
-  );
-  const deadlinePredicated = useMemo(() => {
-    if (dlSel === "ALL") return explorerFiltered;
-    return explorerFiltered.filter((r) => deadlineBucket(r, TODAY) === (dlSel as DeadlineBucket));
-  }, [explorerFiltered, dlSel]);
-  const explorerRows = useMemo(() => searchContents(deadlinePredicated, debouncedQ), [deadlinePredicated, debouncedQ]);
-  const totalPages = Math.max(1, Math.ceil(explorerRows.length / EXPLORER_PAGE_SIZE));
-  // Clamp the working page into [1, totalPages] at render time (no effect/setState).
-  const currentPage = Math.min(Math.max(1, page), totalPages);
-
-  const explorerFilterDims: ExplorerFilterDim[] = [
-    { name: "exp-pic", label: "PIC", options: pics, selected: explPics, onToggle: (v) => toggle(explPics, v, setExplPics), onReplace: (vals) => setExplPics(new Set(vals)) },
-    { name: "exp-month", label: "Bulan", options: months, selected: explMonths, onToggle: (v) => toggle(explMonths, v, setExplMonths), onReplace: (vals) => setExplMonths(new Set(vals)) },
-    { name: "exp-status", label: "Status", options: statusOptions, selected: explStatuses, onToggle: (v) => toggle(explStatuses, v, setExplStatuses), onReplace: (vals) => setExplStatuses(new Set(vals)) },
-    { name: "exp-platform", label: "Platform", options: platformOptions, selected: explPlatforms, onToggle: (v) => toggle(explPlatforms, v, setExplPlatforms), onReplace: (vals) => setExplPlatforms(new Set(vals)) },
-    { name: "exp-pillar", label: "Content Pillar", options: pillarOptions, selected: explPillars, onToggle: (v) => toggle(explPillars, v, setExplPillars), onReplace: (vals) => setExplPillars(new Set(vals)) },
-    { name: "exp-format", label: "Format", options: formatOptions, selected: explFormats, onToggle: (v) => toggle(explFormats, v, setExplFormats), onReplace: (vals) => setExplFormats(new Set(vals)) },
-  ];
-  const resetExplorerFilters = () => {
-    setExplPics(new Set(pics)); setExplMonths(new Set(months)); setExplStatuses(new Set(statusOptions));
-    setExplPlatforms(new Set(platformOptions)); setExplPillars(new Set(pillarOptions)); setExplFormats(new Set(formatOptions));
-    setDlSel("ALL"); setPage(1); setColMenuOpen(false);
-  };
-  const inlineSave = () => runSaveFor(explorerRows.slice((currentPage - 1) * EXPLORER_PAGE_SIZE, currentPage * EXPLORER_PAGE_SIZE));
-  const detailSave = () => { if (detailRow) { runSaveFor([detailRow]); setEditingDetail(false); } };
-
-  const hasProses = useMemo(() => {
-    if (rows.length === 0) return false;
-    return Object.prototype.hasOwnProperty.call(rows[0], "PROSES");
-  }, [rows]);
-  const empty = rows.length === 0 || !hasProses;
-  const activeFilterCount =
-    (picSel.size !== pics.length ? 1 : 0) + (monthSel.size !== months.length ? 1 : 0) +
-    (statusSel.size !== statusOptions.length ? 1 : 0) + (platformSel.size !== platformOptions.length ? 1 : 0) +
-    (pillarSel.size !== pillarOptions.length ? 1 : 0) + (formatSel.size !== formatOptions.length ? 1 : 0);
-
-  const WEEKDAYS = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
-  const toneClass = (r: Row): string => {
-    if (isDoneByLocal(r)) return "border-success/30 bg-success/5";
-    const d = deadlineDate(r);
-    if (d) {
-      const ts = startOfDayLocal(TODAY);
-      if (d < ts) return "border-danger/30 bg-danger/5";
-      if (d.getDate() === ts.getDate() && d.getMonth() === ts.getMonth() && d.getFullYear() === ts.getFullYear()) return "border-warning/40 bg-warning/5";
-    }
-    return "border-border bg-surface";
-  };
-
   return (
-    <div className="mx-auto w-full min-w-0 max-w-[1240px] px-4 sm:px-6">
-      <main className="mx-auto w-full max-w-[1220px]">
-        {empty ? (
-          <>
-            <ModuleHero icon="📱" title="Social Media"
-              desc="Produksi konten, workload per PIC, publishing, dan monitoring operasional." />
-            <EmptyState title="Data sosmed tidak tersedia atau kosong." />
-          </>
-        ) : (
-          <>
-            {/* Page header + action cluster */}
-            <header className="mb-8 flex flex-wrap items-center justify-between gap-4 pt-8">
-              <div className="min-w-0">
-                <p className="text-[0.78rem] font-bold uppercase tracking-[0.14em] text-brand">Workspace</p>
-                <h1 className="mt-1 text-[1.7rem] font-extrabold leading-tight tracking-[-0.01em] text-ink">Social Media</h1>
-                <p className="mt-1 text-[0.92rem] text-muted">Produksi konten, workload per PIC, publishing, dan monitoring operasional.</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <Button variant="primary" onClick={() => { setPlannerOpen(true); }} className="shrink-0">+ Content Plan</Button>
-                <Button variant="secondary" onClick={() => onRefresh?.()} className="shrink-0">🔄 Refresh Data</Button>
-              </div>
-            </header>
-
-            {/* §1 Filter Data (unchanged) */}
-            <div className="relative z-20 mb-6 rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)] backdrop-blur-[8px]">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                {filterCardHeader(`Filter Data${activeFilterCount > 0 ? ` (${activeFilterCount} aktif)` : ""}`)}
-                <button type="button" onClick={resetAll} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[12px] border border-border bg-surface-input px-3 py-1.5 text-[0.82rem] font-semibold text-brand transition-colors hover:border-brand/40 hover:text-brand-hover">↩ Reset</button>
-              </div>
-              <div className="flex flex-wrap items-start gap-3 md:grid md:grid-cols-2 xl:grid-cols-7 md:gap-4">
-                {filterDims.map((d) => (
-                  <MultiSelectDropdown key={d.name} name={d.name} label={d.label} hint={d.hint} className={d.className ?? "md:col-span-1"}
-                    options={d.options} selected={d.selected} onToggle={(v) => toggle(d.selected, v, d.set)} onReplace={(vals) => d.set(new Set(vals))}
-                    openMenu={openMenu} setOpenMenu={setOpenMenu} />
-                ))}
-              </div>
-              {activeFilterCount > 0 ? (
-                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-divider pt-3">
-                  <span className="text-[0.82rem] font-semibold text-muted">Filter Aktif:</span>
-                  {filterDims.map((d) =>
-                    d.options.length > 0 && d.selected.size !== d.options.length
-                      ? d.options.filter((o) => !d.selected.has(o)).map((o) => (
-                          <button key={`${d.name}:${o}`} type="button" onClick={() => toggle(d.selected, o, d.set)}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-brand/30 bg-surface-strong px-2.5 py-1 text-[0.8rem] font-semibold text-ink transition-colors hover:border-brand/40 hover:text-brand-hover">
-                            {o}<span aria-hidden className="text-[0.95rem] leading-none text-muted">×</span>
-                          </button>
-                        ))
-                      : null)}
-                  <button type="button" onClick={resetAll} className="text-[0.82rem] font-semibold text-brand hover:text-brand-hover hover:underline">Hapus Semua</button>
-                </div>
-              ) : null}
-            </div>
-
-            {/* §5.1 DEADLINE MONITORING — primary band, right under the filter */}
-            <SectionHeader title="Deadline Monitoring" subtitle="Prioritas utama: Overdue, jatuh tempo hari ini/minggu ini, dan selesai." />
-            <div className="rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow)] backdrop-blur-[8px]">
-              <div className="grid gap-3 md:grid-cols-4">
-                {countChip("🚨 Overdue", deadlines.overdueCount, "border-danger/30 bg-danger/10")}
-                {countChip("📅 Due Today", deadlines.dueTodayCount, "border-warning/30 bg-warning/10")}
-                {countChip("🗓️ Due This Week", deadlines.dueThisWeekCount, "border-brand/30 bg-brand/10")}
-                {countChip("✅ Completed", deadlines.completedCount, "border-success/30 bg-success/10")}
-              </div>
-              {deadlines.overdue.length > 0 ? (
-                <div className="mt-2">
-                  <p className="text-[0.82rem] font-semibold text-muted">Overdue-content ({deadlines.overdueCount})</p>
-                  <div className="rounded-[12px] border border-danger/30 bg-surface/70">
-                    {deadlines.overdue.map((r) => <ActionItemRow key={originalIndex(r)} item={{ title: str(r["Judul Konten"]), pic: str(r["PIC"]), deadline: str(r["Tanggal Deadline"]), platform: "", status: str(r["PROSES"]) }} />)}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            <Divider />
-
-            {/* §5.2 Production Overview — compact 5-across */}
-            <SectionHeader title="Production Overview" subtitle="Ringkasan produksi: planned, done, in-progress, overdue, dan completion-rate." />
-            <div className={compactRow}>
-              <MetricCard icon="📊" label="Total Planned" value={String(overview.planned)} />
-              <MetricCard icon="✅" label="Total Done" value={String(overview.done)} />
-              <MetricCard icon="⏳" label="In Progress" value={String(overview.inProgress)} />
-              <MetricCard icon="🚨" label="Overdue" value={String(overview.overdue)} />
-              <MetricCard icon="🎯" label="Completion Rate" value={formatPercent(overview.completionRate ?? 0, overview.completionRate !== null)} />
-            </div>
-            <div className={`mt-3 ${compactRow}`}>
-              <MetricCard icon="🎬" label="Video Selesai" value={metrics.videoLabel} />
-              <MetricCard icon="🎨" label="Design Selesai" value={metrics.designLabel} />
-              <MetricCard icon="📸" label="Hutang Post IG" value={String(metrics.hutangIg)} />
-              <MetricCard icon="🎵" label="Hutang Post TikTok" value={String(metrics.hutangTiktok)} />
-              <MetricCard icon="▶️" label="Hutang Post YT" value={String(metrics.hutangYt)} />
-            </div>
-
-            <Divider />
-
-            {/* §3 Content Planning — Calendar & List + Content Plan Storage */}
-            <div className="rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)] backdrop-blur-[8px]">
-              <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-[1.1rem] font-extrabold text-ink">Content Planning</h2>
-              </div>
-              {/* Content Plan Storage */}
-              <div className="mb-4 rounded-[14px] border border-divider bg-surface/60 p-3">
-                <p className="mb-2 text-[0.85rem] font-bold text-muted">Content Plan Storage ({planRows.length})</p>
-                {planRows.length === 0 ? (
-                  <p className="text-[0.85rem] text-muted">Belum ada rencana. Klik <span className="font-semibold text-brand">+ Content Plan</span> untuk membuat.</p>
-                ) : (
-                  <div className="divide-y divide-divider">
-                    {planRows.map((p) => {
-                      const pi = typeof p.__rowIndex === "number" ? p.__rowIndex : planRows.indexOf(p);
-                      const pushed = planIsPushed(p, pi);
-                      return (
-                        <div key={pi} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
-                          <span className="min-w-0 flex-1 truncate text-[0.88rem] font-semibold text-ink" title={str(p["Judul / Ide Konten"])}>{str(p["Judul / Ide Konten"]) || "—"}</span>
-                          <PlanStatusBadge status={str(p["Status Plan"])} />
-                          {str(p["Priority"]).trim() ? <span className="rounded-full bg-surface-strong px-2 py-0.5 text-[0.72rem] font-medium text-muted">{str(p["Priority"])}</span> : null}
-                          {str(p["Deadline Produksi"]).trim() ? <span className="shrink-0 text-[0.78rem] text-muted">⏰ {str(p["Deadline Produksi"])}</span> : null}
-                          {isEditor && str(p["Status Plan"]).trim().toUpperCase() === "APPROVED" && !pushed ? (
-                            <Button variant="primary" onClick={() => addToProduction(p, pi)} ariaLabel="Tambahkan ke pipeline produksi sosmed" className="!px-3 !py-1 !text-[0.78rem]">＋ Tambah ke Produksi</Button>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Tab bar */}
-              <div className="mb-4 inline-flex items-center gap-1 rounded-[12px] border border-border bg-surface p-1 shadow-[var(--dm-shadow-xs)]">
-                <button type="button" aria-pressed={tab === "calendar"} onClick={() => setTab("calendar")}
-                  className={`rounded-[10px] px-4 py-1.5 text-[0.85rem] font-semibold transition-colors ${tab === "calendar" ? "bg-brand text-white shadow-[var(--dm-shadow-xs)]" : "text-muted hover:text-ink"}`}>📅 Kalender</button>
-                <button type="button" aria-pressed={tab === "list"} onClick={() => setTab("list")}
-                  className={`rounded-[10px] px-4 py-1.5 text-[0.85rem] font-semibold transition-colors ${tab === "list" ? "bg-brand text-white shadow-[var(--dm-shadow-xs)]" : "text-muted hover:text-ink"}`}>📋 Daftar</button>
-              </div>
-
-              {/* Calendar view */}
-              {tab === "calendar" ? (
-                <div>
-                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                    <Button variant="secondary" onClick={() => setCalCursor(firstOfToday())}>Hari Ini</Button>
-                    <div className="flex items-center gap-2">
-                      <button type="button" aria-label="Bulan sebelumnya" onClick={() => setCalCursor(shiftMonth(calCursor, -1))} className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-border bg-surface-input text-ink hover:border-brand/40">‹</button>
-                      <span className="min-w-[9rem] text-center text-[1rem] font-extrabold text-ink">{monthTitleText(calCursor)}</span>
-                      <button type="button" aria-label="Bulan berikutnya" onClick={() => setCalCursor(shiftMonth(calCursor, 1))} className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-border bg-surface-input text-ink hover:border-brand/40">›</button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-7 gap-1.5">
-                    {WEEKDAYS.map((w) => (
-                      <div key={w} className="sticky top-0 z-10 bg-surface/90 backdrop-blur-[4px] pb-1 text-center text-[0.72rem] font-bold uppercase tracking-wide text-muted">{w}</div>
-                    ))}
-                    {cells.map((c, i) => {
-                      const todayNum = TODAY.getDate();
-                      const isTodayCell = !c.isOutside && c.day === todayNum && calCursor.getMonth() === TODAY.getMonth() && calCursor.getFullYear() === TODAY.getFullYear();
-                      return (
-                        <div key={i} className={`min-h-[92px] rounded-[12px] border p-1.5 ${c.isOutside ? "bg-transparent border-border/40 opacity-50" : "border-border bg-surface/70"}`}>
-                          <div className="flex items-center justify-between">
-                            <span className={`inline-flex h-5 w-5 items-center justify-center rounded-[8px] text-[0.8rem] font-bold ${isTodayCell ? "border-[1.5px] border-accent text-accent" : "text-ink"}`}>{c.day}</span>
-                          </div>
-                          <div className="mt-1 flex flex-col gap-1 overflow-hidden">
-                            {c.rows.slice(0, 3).map((r) => {
-                              const jx = originalIndex(r);
-                              return (
-                                <button key={jx} type="button" onClick={() => detailOpen(r)}
-                                  className={`group w-full rounded-[8px] border p-1.5 text-left transition-colors group-hover:border-brand/40 ${toneClass(r)}`}>
-                                  <span className="block truncate text-[0.72rem] font-semibold text-ink" title={str(r["Judul Konten"])}>{str(r["Judul Konten"]) || "—"}</span>
-                                  <span className="mt-0.5 flex items-center gap-1 text-[0.65rem] text-muted">
-                                    <span className="truncate">{str(r["Output"])}</span>
-                                    {str(r["Platform"]).trim() ? <span className="text-brand-hover/80">· {str(r["Platform"])}</span> : null}
-                                  </span>
-                                  <span className="mt-1 flex items-center gap-1.5 text-[0.68rem]">
-                                    <span className="truncate text-muted">{str(r["PIC"]) || "—"}</span>
-                                    <ProsesBadge status={str(r["PROSES"])} />
-                                  </span>
-                                </button>
-                              );
-                            })}
-                            {c.rows.length > 3 ? <span className="px-0.5 text-[0.68rem] font-semibold text-brand-hover">+{c.rows.length - 3} lagi</span> : null}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                /* List view (Daftar) */
-                <div>
-                  <p className="mb-2 text-[0.8rem] text-muted">menampilkan {filtered.length} konten</p>
-                  <div className="divide-y divide-divider rounded-[16px] border border-border bg-surface">
-                    {filtered.length === 0 ? (
-                      <EmptyState title="Tidak ada konten." />
-                    ) : (
-                      [...filtered].sort((a, b) => {
-                        const da = deadlineDate(a)?.getTime() ?? Number.MAX_SAFE_INTEGER;
-                        const db = deadlineDate(b)?.getTime() ?? Number.MAX_SAFE_INTEGER;
-                        return da - db;
-                      }).map((row) => (
-                        <button type="button" key={originalIndex(row)} onClick={() => detailOpen(row)}
-                          className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-left transition-colors hover:bg-brand/[0.03]">
-                          <span className="min-w-0 flex-1 truncate text-[0.9rem] font-semibold text-ink" title={str(row["Judul Konten"])}>{str(row["Judul Konten"]) || "—"}</span>
-                          <span className="hidden text-[0.8rem] text-muted sm:inline">{str(row["Output"])}</span>
-                          {str(row["Platform"]).trim() ? <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[0.72rem] font-semibold text-brand-hover">📲 {str(row["Platform"])}</span> : null}
-                          <span className="shrink-0 text-[0.8rem] text-muted">{str(row["PIC"]) || "—"}</span>
-                          <span className="shrink-0 rounded-full bg-surface-strong px-2 py-0.5 text-[0.72rem] font-medium text-muted">⏰ {str(row["Tanggal Deadline"]) || "—"}</span>
-                          <ProsesBadge status={str(row["PROSES"])} />
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <Divider />
-
-            {/* §4 Production Funnel | Status Breakdown — 50/50 */}
-            <SectionHeader title="Production Funnel & Status Breakdown" subtitle="Funnel produksi (Planned → Production → Review → Revision → Done → Published) dan berapa konten di setiap fase." />
-            <div className={splitRow}>
-              {/* LEFT — funnel */}
-              <ChartContainer data={funnel} label="Funnel produksi (berdasarkan PROSES)">
-                <FunnelBars stages={funnel} />
-              </ChartContainer>
-              {/* RIGHT — status breakdown (compact chips, two-across inside the half column) */}
-              <div className="rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)] backdrop-blur-[8px]">
-                <p className="mb-3 text-[0.85rem] font-semibold text-muted">Berapa konten di setiap fase</p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {breakdown.map((s) => {
-                    const tone = s.key === "published" ? "border-brand/30 bg-brand/10"
-                      : s.key === "done" ? "border-success/30 bg-success/10"
-                        : s.key === "revision" ? "border-danger/30 bg-danger/10"
-                          : s.key === "inProduction" ? "border-warning/30 bg-warning/10"
-                            : "border-border bg-surface/60";
-                    return (
-                      <div key={s.key} className={`flex items-center justify-between rounded-[12px] border ${tone} p-2.5`}>
-                        <span className="text-[0.82rem] font-semibold text-ink">{s.label}</span>
-                        <span className="text-[0.95rem] font-extrabold text-ink">{s.count}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            <Divider />
-
-            {/* §6 Action Required (standalone quad grid) */}
-            <SectionHeader title="Action Required" subtitle="Tugas operasional: overdue, menunggu review, dalam revisi, dan selesai-belum diposting." />
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="rounded-[16px] border border-danger/30 bg-surface/70">
-                <p className="px-3 py-2 text-[0.88rem] font-bold text-danger">🚨 Overdue ({actions.overdue.length})</p>
-                {actions.overdue.length ? actions.overdue.map((a) => <ActionItemRow key={`${a.title}-${a.pic}-${a.deadline}`} item={a} />) : <p className="px-3 py-2 text-[0.85rem] text-muted">Tidak ada.</p>}
-              </div>
-              <div className="rounded-[16px] border border-warning/30 bg-surface/70">
-                <p className="px-3 py-2 text-[0.88rem] font-bold text-warning">👀 Menunggu Review ({actions.reviewNeeded.length})</p>
-                {actions.reviewNeeded.length ? actions.reviewNeeded.map((a) => <ActionItemRow key={`${a.title}-${a.pic}-${a.deadline}`} item={a} />) : <p className="px-3 py-2 text-[0.85rem] text-muted">Tidak ada.</p>}
-              </div>
-              <div className="rounded-[16px] border border-brand/20 bg-surface/70">
-                <p className="px-3 py-2 text-[0.88rem] font-bold text-brand-hover">🔁 Dalam Revisi ({actions.inRevision.length})</p>
-                {actions.inRevision.length ? actions.inRevision.map((a) => <ActionItemRow key={`${a.title}-${a.pic}-${a.deadline}`} item={a} />) : <p className="px-3 py-2 text-[0.85rem] text-muted">Tidak ada (status tidak tersedia di data).</p>}
-              </div>
-              <div className="rounded-[16px] border border-brand/20 bg-surface/70">
-                <p className="px-3 py-2 text-[0.88rem] font-bold text-brand-hover">📤 Selesai, belum dipublikasi ({actions.finishedNotPublished.length})</p>
-                {actions.finishedNotPublished.length ? actions.finishedNotPublished.map((a) => <ActionItemRow key={`${a.title}-${a.pic}-${a.deadline}`} item={a} />) : <p className="px-3 py-2 text-[0.85rem] text-muted">Tidak ada.</p>}
-              </div>
-            </div>
-
-            <Divider />
-
-            {/* §5 Workload per PIC | PIC Detail Table — 50/50 */}
-            <SectionHeader title="Workload per PIC" subtitle="Monitoring dan kapasitas per PIC — bukan ranking." />
-            <div className={splitRow}>
-              <ChartContainer data={picLoad} label="Done (hijau) vs Pending (kuning) dengan overdue">
-                <WorkloadBars items={picLoad.map((p) => ({ pic: p.pic, selesai: p.done, hutang: p.pending }))} />
-              </ChartContainer>
-              {picLoad.length > 0 ? <PicCapacityRows items={picLoad} /> : <EmptyState title="Belum ada data workload." />}
-            </div>
-
-            <Divider />
-
-            {/* §6 Publishing Tracker — compact 5-across */}
-            <SectionHeader title="Publishing Tracker" subtitle="IG / TikTok / YT dipublikasi, cross-platform, dan selesai-belum dipublikasi." />
-            <div className={compactRow}>
-              <MetricCard icon="📸" label="Instagram Published" value={String(publishing.ig)} />
-              <MetricCard icon="🎵" label="TikTok Published" value={String(publishing.tiktok)} />
-              <MetricCard icon="▶️" label="YouTube Published" value={String(publishing.yt)} />
-              <MetricCard icon="🔀" label="Cross-platform" value={String(publishing.crossPlatform)} />
-              <MetricCard icon="📤" label="Finished, Unpublished" value={String(publishing.finishedNotPublished)} />
-            </div>
-
-            <Divider />
-
-            {/* §10 Content Strategy */}
-            <SectionHeader title="Content Strategy" subtitle="Distribusi per Content Pillar, Format dan Platform (berdasarkan nilai aktual)." />
-            <div className="grid gap-4 md:grid-cols-3">
-              <ChartContainer data={strategy.pillars} label="Content Pillar">
-                {strategy.pillars.length ? (
-                  <div className="flex flex-col gap-2">{strategy.pillars.map((b, i) => (
-                    <StrategyBar key={b.value} value={b.value} count={b.count} sharePct={b.sharePct} fill={[PALETTE.catBlue, PALETTE.catGreen, PALETTE.catOrange, PALETTE.catPurple, PALETTE.catTeal, PALETTE.catPink, PALETTE.catSlate, PALETTE.catSand][i % 8]} />
-                  ))}</div>
-                ) : <EmptyState title="Tidak ada data content pillar." />}
-              </ChartContainer>
-              <ChartContainer data={strategy.formats} label="Format">
-                {strategy.formats.length ? (
-                  <div className="flex flex-col gap-2">{strategy.formats.map((b, i) => (
-                    <StrategyBar key={b.value} value={b.value} count={b.count} sharePct={b.sharePct} fill={[PALETTE.catGreen, PALETTE.catBlue, PALETTE.catOrange][i % 3]} />
-                  ))}</div>
-                ) : <EmptyState title="Tidak ada data format." />}
-              </ChartContainer>
-              <ChartContainer data={strategy.platforms} label="Platform">
-                {strategy.platforms.length ? (
-                  <div className="flex flex-col gap-2">{strategy.platforms.map((b, i) => (
-                    <StrategyBar key={b.value} value={b.value} count={b.count} sharePct={b.sharePct} fill={[PALETTE.catOrange, PALETTE.catTeal, PALETTE.catPurple][i % 3]} />
-                  ))}</div>
-                ) : <EmptyState title="Tidak ada data platform." />}
-              </ChartContainer>
-            </div>
-
-            <Divider />
-
-            {/* §7 Output Trend — interactive dependency-free SVG */}
-            <SectionHeader title="Output Trend" subtitle="Produksi per minggu (planned vs done) berdasarkan minggu deadline." />
-            {trend.length ? (
-              <InteractiveOutputTrend points={trend} />
-            ) : (
-              <div className="relative rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)] backdrop-blur-[8px]">
-                <EmptyState title="Belum ada data deadline untuk tren." />
-              </div>
-            )}
-
-            <Divider />
-
-            {/* §12 Master Content Data EXPLORER (inline) */}
-            <SectionHeader title="Master Content Data Explorer" subtitle="Jelajahi, cari, dan kelola seluruh konten. Edit sel dan klik 'Simpan Perubahan' untuk menyimpan." />
-            <ContentExplorer
-              rows={explorerRows} isEditor={isEditor} embedded originalIndex={originalIndex} onOpenDetail={detailOpen}
-              query={query} setQuery={handleQuery} page={currentPage} setPage={setPage} totalPages={totalPages}
-              visibleCols={visibleCols} setVisibleCols={setVisibleCols} colMenuOpen={colMenuOpen} setColMenuOpen={setColMenuOpen}
-              openMenu={openMenu} setOpenMenu={setOpenMenu} filterDims={explorerFilterDims}
-              dlSel={dlSel} setDlSel={setDlSel} onResetFilters={resetExplorerFilters}
-              saving={saving} setCell={setCell} cellValue={cellValue} pics={pics} statusOptions={PROSES_OPTIONS as unknown as string[]}
-              runSave={inlineSave} saveMsg={saveMsg} onExpand={() => setFullscreen(true)}
-            />
-          </>
-        )}
-      </main>
-
-      {/* Content Planner modal */}
-      <ContentPlannerModal open={plannerOpen} options={planOptions} form={planForm} setForm={setPlanField}
-        planFormValid={planFormValid} saving={savingPlan} planError={planError} onSave={saveContentPlan} onClose={() => setPlannerOpen(false)} />
-
-      {/* Row-detail drawer */}
-      {detailRow ? (
-        <RowDetailDrawer row={detailRow} rowIndex={originalIndex(detailRow)} onClose={() => setDetailRow(null)}
-          isEditor={isEditor} editing={editingDetail} setEditing={setEditingDetail} pics={pics}
-          draft={draft} setCell={setCell} saving={saving} runSave={detailSave} saveMsg={saveMsg} />
-      ) : null}
-
-      {/* Fullscreen explorer overlay */}
-      {fullscreen ? (
-        <div role="dialog" aria-modal="true" aria-label="Explorer konten — layar penuh"
-          className="fixed inset-0 z-50 flex flex-col bg-surface-strong/95 backdrop-blur-md">
-          <header className="flex items-center justify-between gap-3 border-b border-divider bg-white/80 px-5 py-3">
-            <h2 className="text-[1.1rem] font-extrabold text-ink">Master Content Data Explorer</h2>
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={resetExplorerFilters} className={btnReset}>Reset Filter</button>
-              <Button variant="secondary" onClick={() => setFullscreen(false)}>✕ Tutup</Button>
-            </div>
-          </header>
-          <div className="mx-auto w-full max-w-[1500px] flex-1 min-h-0 overflow-y-auto px-6 py-4">
-            <ContentExplorer
-              rows={explorerRows} isEditor={isEditor} embedded={false} originalIndex={originalIndex} onOpenDetail={detailOpen}
-              query={query} setQuery={handleQuery} page={currentPage} setPage={setPage} totalPages={totalPages}
-              visibleCols={visibleCols} setVisibleCols={setVisibleCols} colMenuOpen={colMenuOpen} setColMenuOpen={setColMenuOpen}
-              openMenu={openMenu} setOpenMenu={setOpenMenu} filterDims={explorerFilterDims}
-              dlSel={dlSel} setDlSel={setDlSel} onResetFilters={resetExplorerFilters}
-              saving={saving} setCell={setCell} cellValue={cellValue} pics={pics} statusOptions={PROSES_OPTIONS as unknown as string[]}
-              runSave={inlineSave} saveMsg={saveMsg} onExpand={() => {}}
-            />
-          </div>
-        </div>
-      ) : null}
-    </div>
+    <nav aria-label="Sosmed sub-navigation" className="my-4 inline-flex items-center gap-1 rounded-[12px] border border-border bg-surface p-1 shadow-[var(--dm-shadow-xs)]">
+      {items.map((it) => {
+        const active = pathname === it.href;
+        return (
+          <Link
+            key={it.href}
+            href={it.href}
+            aria-current={active ? "page" : undefined}
+            className={`inline-flex items-center gap-1 rounded-[10px] px-4 py-1.5 text-[0.85rem] font-semibold transition-colors ${
+              active ? "bg-brand text-white shadow-[var(--dm-shadow-xs)]" : "text-muted hover:text-ink"
+            }`}
+          >
+            {it.label}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
-
-/** Local helpers (keep component body clean). */
-function isDoneByLocal(r: Row): boolean { return str(r["PROSES"]).toUpperCase() === "DONE"; }
-function startOfDayLocal(d: Date): Date { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
