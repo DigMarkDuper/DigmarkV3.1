@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { selectionSummary } from "@/workspaces/sosmedUiShared";
+import { selectionSummary, RowDetailDrawer } from "@/workspaces/sosmedUiShared";
 import { SosmedPlanningDashboard } from "@/workspaces/SosmedPlanningDashboard";
 import { SosmedReportingDashboard } from "@/workspaces/SosmedReportingDashboard";
 import { SosmedLanding } from "@/workspaces/SosmedLanding";
 import {
   SOSMED_BOOL_COLS,
   SOSMED_TEXT_COLS,
+  SOSMED_EDITABLE_TEXT_COLS,
   deadlineMonth,
   diffPatches,
   filterRows,
@@ -15,6 +16,7 @@ import {
   isOverdue,
   isVideo,
   latestDeadlineMonthSet,
+  prevDeadlineMonthSet,
   picOptions,
   sosmedMetrics,
   sosmedMonths,
@@ -202,6 +204,33 @@ describe("INLINE EDITOR diff — writes PATCH only for changed cells", () => {
     full[2]["PROSES"] = "DONE";
     const patches = diffPatches(rows, full);
     expect(patches[0].rowIndex).toBe(2); // original index, not filtered position 0
+  });
+
+  it("PATCHes newly-editable source columns (Platform / Tanggal Posting) that diffPatches previously dropped", () => {
+    // Platform — added to the patchable text set; FIXTURE[1] has no Platform value.
+    const rows = [FIXTURE[1]];
+    const draft: Record<number, Record<string, string | boolean>> = { 0: { Platform: "Instagram" } };
+    expect(diffPatches(rows, draft)).toEqual([{ rowIndex: 0, column: "Platform", value: "Instagram" }]);
+    // Tanggal Posting — date column, edited via the explorer date field.
+    const draft2: Record<number, Record<string, string | boolean>> = { 0: { "Tanggal Posting": "06/09/2026" } };
+    expect(diffPatches(rows, draft2)).toEqual([{ rowIndex: 0, column: "Tanggal Posting", value: "06/09/2026" }]);
+    // every editable source column is covered by the whitelist
+    expect(SOSMED_EDITABLE_TEXT_COLS).toContain("Platform");
+    expect(SOSMED_EDITABLE_TEXT_COLS).toContain("Tanggal Posting");
+    expect(SOSMED_EDITABLE_TEXT_COLS).toContain("LINK COVER");
+    expect(SOSMED_EDITABLE_TEXT_COLS).toContain("Konten Pillar");
+  });
+
+  it("NEVER patches Kode Konten — it stays readonly/preserved", () => {
+    const rows = [FIXTURE[0]]; // Kode Konten "K1"
+    const draft: Record<number, Record<string, string | boolean>> = { 0: { "Kode Konten": "K7" } };
+    expect(diffPatches(rows, draft)).toEqual([]);
+  });
+
+  it("blanking a newly-editable column produces NO patch — preserves existing data (validation)", () => {
+    const rows = [FIXTURE[0]];
+    const draft: Record<number, Record<string, string | boolean>> = { 0: { Platform: "", "Judul Konten": "   " } };
+    expect(diffPatches(rows, draft)).toEqual([]);
   });
 });
 
@@ -632,6 +661,31 @@ describe("Sosmed revisions — latest-period default scope + reworked layout (§
     expect(latestDeadlineMonthSet([], FIXTURE)).toEqual(new Set(["October 2026"]));
   });
 
+  it("prevDeadlineMonthSet returns ONLY the PREVIOUS calendar month (relative to today)", () => {
+    const prev = row({ "Kode Konten": "A", "Tanggal Deadline": "10/08/2026" });
+    const cur = row({ "Kode Konten": "B", "Tanggal Deadline": "20/09/2026" });
+    const months = ["August 2026", "September 2026"];
+    const today = new Date(2026, 8, 24); // 2026-09-24 → previous calendar month = August 2026
+    expect(prevDeadlineMonthSet(months, [prev, cur], today)).toEqual(new Set(["August 2026"]));
+    expect(prevDeadlineMonthSet(months, [prev, cur], today).size).toBe(1);
+  });
+
+  it("prevDeadlineMonthSet crosses the year boundary (January → prior December)", () => {
+    const dec = row({ "Kode Konten": "C", "Tanggal Deadline": "05/12/2026" });
+    const jan = row({ "Kode Konten": "D", "Tanggal Deadline": "10/01/2027" });
+    const months = ["December 2026", "January 2027"];
+    expect(prevDeadlineMonthSet(months, [dec, jan], new Date(2027, 0, 15))).toEqual(new Set(["December 2026"]));
+  });
+
+  it("prevDeadlineMonthSet returns EMPTY (never drops data) when the previous month has no data", () => {
+    const months = ["September 2026", "October 2026"];
+    // FIXTURE deadlines are Sep/Oct 2026; previous month (Aug) has none.
+    expect(prevDeadlineMonthSet(months, FIXTURE, new Date(2026, 8, 24))).toEqual(new Set([]));
+    expect(prevDeadlineMonthSet(months, [], new Date(2026, 8, 24))).toEqual(new Set([]));
+    // prev month has data but its label is absent from `months` → empty (guarded)
+    expect(prevDeadlineMonthSet(["September 2026"], [row({ "Kode Konten": "A", "Tanggal Deadline": "10/08/2026" })], new Date(2026, 8, 24))).toEqual(new Set([]));
+  });
+
   it("reporting layout: Production Overview renders ABOVE Deadline Monitoring (spec §4.3 order #2→#3)", () => {
     const html = renderToStaticMarkup(<SosmedReportingDashboard rows={FIXTURE} isEditor onRefresh={() => {}} />);
     const dmIdx = html.indexOf("Prioritas utama: Overdue, jatuh tempo hari ini/minggu ini, dan selesai.");
@@ -871,10 +925,34 @@ describe("Sosmed Command Center — Content Planner + Add-to-Production", () => 
     expect(byPlat.map((r) => r["Kode Konten"])).toEqual(["K2"]);
   });
 
-  it("SC6 Expand/fullscreen path: Explorer COLUMN catalog + default columns (code/title/deadline/pic/format/status/platform)", () => {
-    expect(EXPLORER_DEFAULT_COLS).toEqual(["code", "title", "deadline", "pic", "format", "status", "platform"]);
-    expect(COLUMN_DEFS.length).toBe(14); // 7 default + 7 extra
-    // extra columns are present in order
-    expect(COLUMN_DEFS.map((d) => d.key)).toEqual([...EXPLORER_DEFAULT_COLS, "pillar", "process", "ig", "tiktok", "yt", "reference", "notes"]);
+  it("SC6 Expand/fullscreen path: Explorer COLUMN catalog + default columns (code/title/deadline/posting/pic/format/status/platform)", () => {
+    expect(EXPLORER_DEFAULT_COLS).toEqual(["code", "title", "deadline", "posting", "pic", "format", "status", "platform"]);
+    expect(COLUMN_DEFS.length).toBe(15); // 8 default + 7 extra
+    // Tanggal Posting column sits directly after deadline in the default set
+    expect(COLUMN_DEFS.map((d) => d.key)).toEqual([
+      ...EXPLORER_DEFAULT_COLS, "pillar", "process", "ig", "tiktok", "yt", "reference", "notes",
+    ]);
+    const posting = COLUMN_DEFS.find((d) => d.key === "posting")!;
+    expect(posting.source).toBe("Tanggal Posting");
+    expect(posting.header).toBe("Tanggal Posting");
+  });
+
+  it("Detail drawer (`RowDetailDrawer`) renders Drive links from the STORED value as clickable anchors — no URL generation", () => {
+    const drive = "https://drive.google.com/drive/folders/abc123?usp=sharing";
+    const r: Row = row({
+      "Kode Konten": "K9", "Judul Konten": "J9", "LINK COVER": drive,
+      "LINK KONTEN JADI": drive, "Tanggal Deadline": "18/09/2026", "Tanggal Posting": "05/09/2026",
+      Output: "Video", "Konten Pillar": "DuperPedia", Platform: "Instagram", PIC: "Ejak",
+      PROSES: "DONE", IG: "V", YT: "1", TIKTOK: false,
+    });
+    const html = renderToStaticMarkup(
+      <RowDetailDrawer row={r} rowIndex={0} onClose={() => {}} isEditor={false} editing={false} setEditing={() => {}}
+        pics={[]} draft={{}} setCell={() => {}} saving={false} runSave={() => {}} saveMsg={null} />
+    );
+    // the stored value is used verbatim as both the href and the visible text (twice: Link Cover + Link Konten Jadi)
+    expect(html.match(/href="https:\/\/drive\.google\.com\/drive\/folders\/abc123\?usp=sharing"/g)?.length ?? 0).toBe(2);
+    expect(html.includes(`>${drive}</a>`)).toBe(true);
+    // it is an opening, clickable anchor in a new tab — not generated/transformed
+    expect(html.includes('target="_blank" rel="noreferrer"')).toBe(true);
   });
 });

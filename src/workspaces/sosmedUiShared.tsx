@@ -22,6 +22,7 @@ import type { Row } from "@/server/adapter/source";
 import { Button } from "@/components/ui/Button";
 import { Select, Checkbox } from "@/components/ui/Field";
 import { PALETTE, formatPercent } from "@/components/ui-common";
+import { toDatetime } from "@/server/utils/helpers";
 import {
   COLUMN_DEFS,
   EXPLORER_DEFAULT_COLS,
@@ -34,6 +35,23 @@ import {
 /** Coerce a cell value to a display string (emo-dash on empty handled by callers). */
 export function str(v: unknown): string {
   return v === null || v === undefined ? "" : String(v);
+}
+
+/** Stored DD/MM/YYYY → ISO YYYY-MM-DD for a native date input ("" when unparseable). */
+function dmyToIso(value: unknown): string {
+  const d = toDatetime(value);
+  if (!d) return "";
+  const y = String(d.getFullYear());
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${mo}-${day}`;
+}
+
+/** ISO YYYY-MM-DD (native date input) → stored DD/MM/YYYY (pass-through otherwise). */
+function isoToDmy(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
 /** §8.2 — compact 5-across grid (xl → 5 cards) for MetricCard chips. */
@@ -750,6 +768,7 @@ export function ContentExplorer({
   onResetFilters,
   saving, setCell, cellValue,
   pics, statusOptions,
+  platformOptions, pillarOptions, formatOptions,
   runSave, saveMsg,
   onExpand,
 }: {
@@ -770,6 +789,7 @@ export function ContentExplorer({
   setCell: (r: number, c: string, v: string | boolean) => void;
   cellValue: (r: Row, c: string) => unknown;
   pics: string[]; statusOptions: string[];
+  platformOptions: string[]; pillarOptions: string[]; formatOptions: string[];
   runSave: () => void; saveMsg: { kind: "ok" | "err" | "info"; text: string } | null;
   onExpand: () => void;
 }) {
@@ -798,7 +818,7 @@ export function ContentExplorer({
 
   const renderCell = (row: Row, key: string) => {
     const def = colDefOf(key);
-    const isReadOnly = key === "code" || key === "title" || key === "deadline" || key === "platform";
+    const isReadOnly = key === "code"; // Kode Konten stays readonly/preserved
     const isBool = ["ig", "tiktok", "yt"].includes(key);
     const src = def.source;
     const val = cellValue(row, src);
@@ -825,16 +845,48 @@ export function ContentExplorer({
       if (key === "pillar") { const s = str(val); return <span className="truncate block max-w-[16rem]" title={s}>{s || "—"}</span>; }
       return <span className="text-ink">{str(val) || "—"}</span>;
     }
-    // editor
+    // editor — EVERY COLUMN_DEFS source is editable (save-back via diffPatches)
     const idx = originalIndex(row);
+    const cellInput = "w-24 rounded-[8px] border border-border bg-surface-input px-2 py-1 text-[0.82rem] text-ink";
     if (key === "pic") {
       return <Select value={str(val)} options={pics.map((o) => ({ value: o, label: o }))} onSelect={(v) => setCell(idx, "PIC", v)} />;
     }
-    if (key === "status") {
+    if (key === "status" || key === "process") {
       return <Select value={str(val)} options={statusOptions.map((o) => ({ value: o, label: o }))} onSelect={(v) => setCell(idx, "PROSES", v)} />;
     }
     if (key === "format") {
-      return <input type="text" value={str(val)} onChange={(e) => setCell(idx, "Output", e.target.value)} className="w-24 rounded-[8px] border border-border bg-surface-input px-2 py-1 text-[0.82rem] text-ink" />;
+      if (formatOptions.length > 0) {
+        return <Select value={str(val)} options={formatOptions.map((o) => ({ value: o, label: o }))} onSelect={(v) => setCell(idx, "Output", v)} />;
+      }
+      return <input type="text" value={str(val)} onChange={(e) => setCell(idx, "Output", e.target.value)} className={cellInput} />;
+    }
+    if (key === "platform") {
+      if (platformOptions.length > 0) {
+        return <Select value={str(val)} options={platformOptions.map((o) => ({ value: o, label: o }))} onSelect={(v) => setCell(idx, "Platform", v)} />;
+      }
+      return <input type="text" value={str(val)} onChange={(e) => setCell(idx, "Platform", e.target.value)} className={cellInput} />;
+    }
+    if (key === "pillar") {
+      if (pillarOptions.length > 0) {
+        return <Select value={str(val)} options={pillarOptions.map((o) => ({ value: o, label: o }))} onSelect={(v) => setCell(idx, "Konten Pillar", v)} />;
+      }
+      return <input type="text" value={str(val)} onChange={(e) => setCell(idx, "Konten Pillar", e.target.value)} className={cellInput} />;
+    }
+    if (key === "deadline" || key === "posting") {
+      const iso = dmyToIso(str(val));
+      if (iso !== "") {
+        return <DateField value={iso} placeholder="DD/MM/YYYY" onChange={(v) => setCell(idx, src, isoToDmy(v))} />;
+      }
+      return <input type="text" value={str(val)} onChange={(e) => setCell(idx, src, e.target.value)} className={cellInput} />;
+    }
+    if (key === "title") {
+      return <input type="text" value={str(val)} onChange={(e) => setCell(idx, "Judul Konten", e.target.value)} className={cellInput} />;
+    }
+    if (key === "reference") {
+      return <input type="text" value={str(val)} onChange={(e) => setCell(idx, "LINK COVER", e.target.value)} className={cellInput} />;
+    }
+    if (key === "notes") {
+      return <input type="text" value={str(val)} onChange={(e) => setCell(idx, "Materi Konten", e.target.value)} className={cellInput} />;
     }
     if (isBool) {
       const on = typeof val === "boolean" ? val : truthy(val);

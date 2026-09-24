@@ -34,6 +34,7 @@ import {
   distinctValues,
   filterRows,
   latestDeadlineMonthSet,
+  prevDeadlineMonthSet,
   picOptions,
   productionKodeExists,
   productionOverview,
@@ -103,13 +104,22 @@ export function SosmedPlanningDashboard({ rows, planRows = [], isEditor, onRefre
   const pillarOptions = useMemo(() => distinctValues(rows, "Konten Pillar"), [rows]);
   const formatOptions = useMemo(() => distinctValues(rows, "Output"), [rows]);
   const planOptions = useMemo(() => {
-    const collect = (col: string) => distinctValues(planRows.length ? planRows : [], col);
+    // Pillar / Format / Platform / PIC options for the planner dropdowns. When a
+    // plan-derived set is empty (content_plan unpopulated) fall back to the
+    // MASTER rows' distinct values so the dropdowns stay clickable/selectable.
+    const planPillar = distinctValues(planRows, "Content Pillar");
+    const planFormat = distinctValues(planRows, "Format");
+    const planPlatform = distinctValues(planRows, "Platform");
+    const planPic = distinctValues(planRows, "PIC");
     const priority = distinctValues(planRows, "Priority");
     return {
-      pillar: collect("Content Pillar"), format: collect("Format"), platform: collect("Platform"), pic: collect("PIC"),
+      pillar: planPillar.length ? planPillar : pillarOptions,
+      format: planFormat.length ? planFormat : formatOptions,
+      platform: planPlatform.length ? planPlatform : platformOptions,
+      pic: planPic.length ? planPic : pics,
       priority: priority.length ? priority : ["High", "Medium", "Low"],
     };
-  }, [planRows]);
+  }, [planRows, pillarOptions, formatOptions, platformOptions, pics]);
 
   // --- §3.2 global filter (dims: Bulan/PIC/Platform/Pillar/Format — NO Status) ---
   const [picSel, setPicSel] = useState<Set<string>>(() => new Set(pics));
@@ -280,7 +290,7 @@ export function SosmedPlanningDashboard({ rows, planRows = [], isEditor, onRefre
   const [colMenuOpen, setColMenuOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [explPics, setExplPics] = useState<Set<string>>(() => new Set(pics));
-  const [explMonths, setExplMonths] = useState<Set<string>>(() => new Set(months));
+  const [explMonths, setExplMonths] = useState<Set<string>>(() => prevDeadlineMonthSet(months, rows, TODAY));
   const [explStatuses, setExplStatuses] = useState<Set<string>>(() => new Set(["Belum Dimulai", "Dalam Produksi", "Review", "Revision", "Done", "Published"]));
   const [explPlatforms, setExplPlatforms] = useState<Set<string>>(() => new Set(platformOptions));
   const [explPillars, setExplPillars] = useState<Set<string>>(() => new Set(pillarOptions));
@@ -308,7 +318,7 @@ export function SosmedPlanningDashboard({ rows, planRows = [], isEditor, onRefre
     { name: "exp-format", label: "Format", options: formatOptions, selected: explFormats, onToggle: (v) => toggle(explFormats, v, setExplFormats), onReplace: (vals) => setExplFormats(new Set(vals)) },
   ];
   const resetExplorerFilters = () => {
-    setExplPics(new Set(pics)); setExplMonths(new Set(months)); setExplStatuses(new Set(["Belum Dimulai", "Dalam Produksi", "Review", "Revision", "Done", "Published"]));
+    setExplPics(new Set(pics)); setExplMonths(prevDeadlineMonthSet(months, rows, TODAY)); setExplStatuses(new Set(["Belum Dimulai", "Dalam Produksi", "Review", "Revision", "Done", "Published"]));
     setExplPlatforms(new Set(platformOptions)); setExplPillars(new Set(pillarOptions)); setExplFormats(new Set(formatOptions));
     setDlSel("ALL"); setPage(1); setColMenuOpen(false);
   };
@@ -567,6 +577,7 @@ export function SosmedPlanningDashboard({ rows, planRows = [], isEditor, onRefre
               openMenu={openMenu} setOpenMenu={setOpenMenu} filterDims={explorerFilterDims}
               dlSel={dlSel} setDlSel={setDlSel} onResetFilters={resetExplorerFilters}
               saving={saving} setCell={setCell} cellValue={cellValue} pics={pics} statusOptions={PROSES_OPTIONS as unknown as string[]}
+              platformOptions={platformOptions} pillarOptions={pillarOptions} formatOptions={formatOptions}
               runSave={inlineSave} saveMsg={saveMsg} onExpand={() => setFullscreen(true)}
             />
           </>
@@ -603,6 +614,7 @@ export function SosmedPlanningDashboard({ rows, planRows = [], isEditor, onRefre
               openMenu={openMenu} setOpenMenu={setOpenMenu} filterDims={explorerFilterDims}
               dlSel={dlSel} setDlSel={setDlSel} onResetFilters={resetExplorerFilters}
               saving={saving} setCell={setCell} cellValue={cellValue} pics={pics} statusOptions={PROSES_OPTIONS as unknown as string[]}
+              platformOptions={platformOptions} pillarOptions={pillarOptions} formatOptions={formatOptions}
               runSave={inlineSave} saveMsg={saveMsg} onExpand={() => {}}
             />
           </div>

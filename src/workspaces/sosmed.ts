@@ -37,6 +37,18 @@ export const SOSMED_DATE_COLS = ["Tanggal Deadline", "Tanggal Posting", "Deadlin
 export const SOSMED_BOOL_COLS = ["IG", "YT", "TIKTOK"] as const;
 /** Free-text / select columns PATCHed as trimmed strings. */
 export const SOSMED_TEXT_COLS = ["Output", "PIC", "PROSES"] as const;
+
+/**
+ * Full inline-editor PATCH whitelist — the union of `SOSMED_TEXT_COLS` and every
+ * Master Content Data column the explorer's renderCell can edit. `Kode Konten`
+ * is deliberately EXCLUDED (readonly/preserved — never patched). Kept in sync
+ * with the editable cells in `sosmedUiShared` ContentExplorer renderCell.
+ */
+export const SOSMED_EDITABLE_TEXT_COLS = [
+  "Output", "PIC", "PROSES",
+  "Tanggal Deadline", "Tanggal Posting", "Platform", "Konten Pillar",
+  "Judul Konten", "Materi Konten", "LINK COVER", "LINK KONTEN JADI",
+] as const;
 /** Read-only columns in the editor (Kode Konten, date col, Judul Konten). */
 export const SOSMED_READONLY_COLS = ["Kode Konten", "Judul Konten"] as const;
 /** PROSES select options (V3 column_config SelectboxColumn). */
@@ -238,6 +250,29 @@ export function latestDeadlineMonthSet(months: string[], rows: Row[]): Set<strin
   }
   if (best === null) return new Set(months);          // no parseable deadline → all
   return bestLabel !== "" ? new Set([bestLabel]) : new Set(months);
+}
+
+/**
+ * §3.5 — Master-explorer default deadline scope: ONLY the PREVIOUS calendar
+ * month (relative to `today`). Pure & deterministic so it is unit-testable,
+ * and safe across year boundaries (January → December of the prior year).
+ * Returns ONLY that month's label when a row's deadline falls inside that
+ * month AND the label exists in `months`; otherwise an EMPTY set — explorer
+ * filters treat empty sets as "pass everything", so this default never drops
+ * data (it just declines to narrow when the prior calendar month has no rows).
+ */
+export function prevDeadlineMonthSet(months: string[], rows: Row[], today: Date): Set<string> {
+  let py = today.getFullYear();
+  let pm = today.getMonth() - 1;
+  if (pm < 0) { py -= 1; pm = 11; }
+  for (const r of rows) {
+    const d = deadlineDate(r);
+    if (d && d.getFullYear() === py && d.getMonth() === pm) {
+      const label = deadlineMonth(r);
+      if (label !== "" && months.includes(label)) return new Set([label]);
+    }
+  }
+  return new Set([]);
 }
 
 function sameDay(a: Date, b: Date): boolean {
@@ -709,8 +744,8 @@ export function diffPatches(rows: Row[], draft: Record<number, Record<string, st
         patches.push({ rowIndex, column: col, value: newVal });
       }
     }
-    // text cols
-    for (const col of SOSMED_TEXT_COLS) {
+    // text cols (all editable source columns; Kode Konten stays readonly)
+    for (const col of SOSMED_EDITABLE_TEXT_COLS) {
       const newVal = edited[col];
       if (newVal === null || newVal === undefined || String(newVal).trim() === "") continue;
       const trimmed = String(newVal).trim();
@@ -897,7 +932,7 @@ export interface ExplorerColumnDef {
   source: string;
 }
 
-const DEFAULT_KEYS = ["code", "title", "deadline", "pic", "format", "status", "platform"] as const;
+const DEFAULT_KEYS = ["code", "title", "deadline", "posting", "pic", "format", "status", "platform"] as const;
 const EXTRA_KEYS = ["pillar", "process", "ig", "tiktok", "yt", "reference", "notes"] as const;
 
 export const EXPLORER_DEFAULT_COLS: readonly string[] = DEFAULT_KEYS as readonly string[];
@@ -907,6 +942,7 @@ export const COLUMN_DEFS: ExplorerColumnDef[] = [
   { key: "code", header: "Kode", source: "Kode Konten" },
   { key: "title", header: "Content Title", source: "Judul Konten" },
   { key: "deadline", header: "Deadline", source: "Tanggal Deadline" },
+  { key: "posting", header: "Tanggal Posting", source: "Tanggal Posting" },
   { key: "pic", header: "PIC", source: "PIC" },
   { key: "format", header: "Format", source: "Output" },
   { key: "status", header: "Status", source: "PROSES" },
