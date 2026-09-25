@@ -13,7 +13,7 @@
  * tests can assert derived counts via react-dom/server.
  */
 "use client";
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import type { Row } from "@/server/adapter/source";
 import { DataTable } from "@/components/grid/DataTable";
 import { Divider } from "@/components/ui/Divider";
@@ -35,6 +35,7 @@ import {
   type TrendPoint,
   type SourceStat,
   type TreemapItem,
+  type TreemapRect,
 } from "@/workspaces/waAdmin";
 import {
   deriveRegistrationStats,
@@ -111,51 +112,101 @@ const LABEL_LARGE_AREA = 12000;
 const LABEL_LARGE_MIN_W = 110;
 const LABEL_LARGE_MIN_H = 52;
 
-/** "Tag Asal" treemap — SVG, dependency-free (preserved from existing UI). */
+/**
+ * "Tag Asal" treemap — SVG, dependency-free (preserved from existing UI).
+ * Added: mouse-following tooltip (Tag + jumlah data) and click-to-select/highlight.
+ * Pure layout/UX: same buildTreemap data & calculations, nulls still skipped by asalBreakdown.
+ */
 function TagAsalTreemap({ items }: { items: TreemapItem[] }) {
   const W = 1000;
   const H = 400;
   const rects = buildTreemap(items, W, H);
   const total = items.reduce((s, i) => s + i.n, 0) || 1;
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [tip, setTip] = useState<{ x: number; y: number; name: string; n: number; pct: string } | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+
+  const move = (e: ReactMouseEvent<SVGGElement>, r: TreemapRect) => {
+    const box = wrapRef.current?.getBoundingClientRect();
+    if (!box) return;
+    const x = Math.min(e.clientX - box.left + 12, box.width - 176);
+    const y = Math.max(e.clientY - box.top - 60, 6);
+    setTip({
+      x,
+      y,
+      name: r.name,
+      n: r.n,
+      pct: ((r.n / total) * 100).toFixed(1),
+    });
+  };
+  const leave = () => setTip(null);
+
   return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      role="img"
-      aria-label="Treemap Tag Asal"
-      className="h-full w-full"
-      preserveAspectRatio="none"
-    >
-      {rects.map((r, i) => {
-        const color = TREEMAP_COLORS[i % TREEMAP_COLORS.length];
-        const area = r.w * r.h;
-        const isLarge = area >= LABEL_LARGE_AREA && r.w >= LABEL_LARGE_MIN_W && r.h >= LABEL_LARGE_MIN_H;
-        const isMedium = area >= LABEL_MEDIUM_AREA && r.w >= LABEL_MEDIUM_MIN_W && r.h >= LABEL_MEDIUM_MIN_H;
-        const baseFont = isLarge ? 17 : isMedium ? 13 : 0;
-        const fontSize = baseFont ? Math.min(baseFont, r.h - 6) : 0;
-        const showLabel = isMedium && fontSize >= 10;
-        const maxChars = showLabel ? Math.max(4, Math.floor((r.w - 8) / (fontSize * 0.62))) : 16;
-        const pct = ((r.n / total) * 100).toFixed(1);
-        return (
-          <g key={`${r.name}-${i}`}>
-            <rect
-              x={r.x} y={r.y} width={r.w} height={r.h} rx="5"
-              fill={color}
-              stroke="#fff" strokeWidth="1.5"
-            />
-            <title>{`Tag Asal: ${r.name}\nJumlah Lead: ${r.n}\nPersentase dari Total Lead: ${pct}%`}</title>
-            {showLabel ? (
-              <text
-                x={r.x + r.w / 2} y={r.y + r.h / 2 + fontSize * 0.35}
-                textAnchor="middle" fontSize={fontSize} fontWeight="800"
-                fill={PALETTE.ink}
-              >
-                {truncateLabel(r.name, maxChars)}
-              </text>
-            ) : null}
-          </g>
-        );
-      })}
-    </svg>
+    <div ref={wrapRef} className="relative h-full w-full">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        role="img"
+        aria-label="Treemap Tag Asal — blok dapat diklik untuk memilih; hover untuk detail"
+        className="h-full w-full"
+        preserveAspectRatio="none"
+      >
+        {rects.map((r, i) => {
+          const color = TREEMAP_COLORS[i % TREEMAP_COLORS.length];
+          const area = r.w * r.h;
+          const isLarge = area >= LABEL_LARGE_AREA && r.w >= LABEL_LARGE_MIN_W && r.h >= LABEL_LARGE_MIN_H;
+          const isMedium = area >= LABEL_MEDIUM_AREA && r.w >= LABEL_MEDIUM_MIN_W && r.h >= LABEL_MEDIUM_MIN_H;
+          const baseFont = isLarge ? 17 : isMedium ? 13 : 0;
+          const fontSize = baseFont ? Math.min(baseFont, r.h - 6) : 0;
+          const showLabel = isMedium && fontSize >= 10;
+          const maxChars = showLabel ? Math.max(4, Math.floor((r.w - 8) / (fontSize * 0.62))) : 16;
+          const pct = ((r.n / total) * 100).toFixed(1);
+          const isSel = selected === r.name;
+          return (
+            <g
+              key={`${r.name}-${i}`}
+              onMouseMove={(e) => move(e, r)}
+              onMouseLeave={leave}
+              onClick={() => setSelected((cur) => (cur === r.name ? null : r.name))}
+              style={{ cursor: "pointer" }}
+            >
+              <rect
+                x={r.x} y={r.y} width={r.w} height={r.h} rx="5"
+                fill={color}
+                stroke={isSel ? PALETTE.ink : "#fff"}
+                strokeWidth={isSel ? 3 : 1.5}
+                opacity={selected && !isSel ? 0.4 : 1}
+              />
+              <title>{`Tag Asal: ${r.name}\nJumlah Lead: ${r.n}\nPersentase dari Total Lead: ${pct}%`}</title>
+              {showLabel ? (
+                <text
+                  x={r.x + r.w / 2} y={r.y + r.h / 2 + fontSize * 0.35}
+                  textAnchor="middle" fontSize={fontSize} fontWeight="800"
+                  fill={PALETTE.ink}
+                >
+                  {truncateLabel(r.name, maxChars)}
+                </text>
+              ) : null}
+            </g>
+          );
+        })}
+      </svg>
+      {tip ? (
+        <div
+          className="pointer-events-none absolute z-20 min-w-[168px] rounded-[12px] border border-border bg-surface px-3.5 py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.25)]"
+          style={{ left: tip.x, top: tip.y }}
+        >
+          <div className="truncate text-[0.95rem] font-extrabold text-ink" title={tip.name}>{tip.name}</div>
+          <div className="mt-1.5 flex items-center justify-between gap-4 text-[0.82rem]">
+            <span className="font-semibold text-muted">Jumlah Lead</span>
+            <span className="font-extrabold text-ink">{tip.n}</span>
+          </div>
+          <div className="flex items-center justify-between gap-4 text-[0.82rem]">
+            <span className="font-semibold text-muted">Persentase</span>
+            <span className="font-extrabold text-brand-hover">{tip.pct}%</span>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -814,6 +865,7 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
   const [regErrors, setRegErrors] = useState<RegEditFieldErrors>({});
   const [regSaving, setRegSaving] = useState(false);
   const [toast, setToast] = useState<{ kind: "success" | "error"; msg: string } | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     if (!toast) return;
@@ -999,9 +1051,20 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
           <span className="rounded-full bg-brand/10 px-2.5 py-0.5 text-[0.8rem] font-bold text-brand-hover">{recent.length}</span>
           <span className="text-[0.72rem] text-muted">Klik baris untuk melihat detail data.</span>
         </div>
-        <span className="rounded-full border border-muted/40 px-2.5 py-0.5 text-[0.72rem] font-medium text-muted">
-          ✏️ Form = edit Form Pendaftaran · ✏️ Ubah = edit WA Admin.
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="secondary"
+            disabled={recent.length === 0}
+            onClick={() => setExpanded(true)}
+            className="shrink-0"
+            ariaLabel="Perluas tabel Pendaftar Terbaru ke layar penuh"
+          >
+            ⛶ Full Screen
+          </Button>
+          <span className="rounded-full border border-muted/40 px-2.5 py-0.5 text-[0.72rem] font-medium text-muted">
+            ✏️ Form = edit Form Pendaftaran · ✏️ Ubah = edit WA Admin.
+          </span>
+        </div>
       </div>
       {recent.length === 0 ? (
         <div className="max-h-[520px]">
@@ -1009,11 +1072,12 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
         </div>
       ) : (
         <div className="max-h-[520px] overflow-y-auto rounded-[14px] border border-divider">
-          <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_auto_auto] gap-4 border-b border-divider bg-white/90 px-3 py-2 text-[0.72rem] font-bold uppercase tracking-[0.02em] text-muted backdrop-blur-[8px]">
+          <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1.7rem)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_auto] gap-4 border-b border-divider bg-white/90 px-3 py-2 text-[0.72rem] font-bold uppercase tracking-[0.02em] text-muted backdrop-blur-[8px]">
+            <span>No</span>
+            <span>Tanggal Masuk</span>
             <span>Nama</span>
             <span>WhatsApp</span>
             <span>Source</span>
-            <span>Tanggal</span>
             <span>Interview</span>
             <span>Hasil</span>
             <span>Pembayaran</span>
@@ -1027,19 +1091,20 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
             const wa = cellOrDash(r["Nomor Whatsapp"] || r["Nomor Handphone"] || "");
             return (
               <div key={i} className="border-b border-divider">
-                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_auto_auto] items-center gap-4">
+                <div className="grid grid-cols-[minmax(0,1.7rem)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_auto] items-center gap-4">
                   <button
                     type="button"
                     onClick={() => toggleRow(i)}
                     aria-expanded={open}
                     aria-controls={open ? `recent-detail-${i}` : undefined}
                     disabled={saving}
-                    className="col-span-8 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_auto] items-center gap-4 px-3 py-2 text-left text-[0.84rem] transition-colors hover:bg-brand/5 focus-visible:bg-brand/10 focus-visible:outline-none"
+                    className="col-span-9 grid grid-cols-[minmax(0,1.7rem)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.9fr)] items-center gap-4 px-3 py-2 text-left text-[0.84rem] transition-colors hover:bg-brand/5 focus-visible:bg-brand/10 focus-visible:outline-none"
                   >
+                    <span className="w-[1.7rem] shrink-0 pr-1 text-right text-[0.78rem] font-semibold text-muted">{i + 1}</span>
+                    <span className="whitespace-nowrap text-[0.78rem] text-muted" title={String(r["Timestamp"] ?? "")}>{tsDisplay(r["Timestamp"])}</span>
                     <span className="min-w-0 truncate text-ink" title={String(r["Nama Lengkap"] ?? "")}>{nama}</span>
                     <span className="min-w-0 truncate text-muted" title={String(r["Nomor Whatsapp"] ?? "")}>{wa}</span>
                     <span className="min-w-0 truncate text-muted" title={String(r["MENGETAHUI DUTA PERSADA DARI"] ?? "")}>{cellOrDash(r["MENGETAHUI DUTA PERSADA DARI"])}</span>
-                    <span className="whitespace-nowrap text-[0.78rem] text-muted" title={String(r["Timestamp"] ?? "")}>{tsDisplay(r["Timestamp"])}</span>
                     <span className="text-ink">{cellOrDash(r["Interview"])}</span>
                     <span className="text-ink">{cellOrDash(r["Hasil Interview\n(Diterima/Tidak)"])}</span>
                     <span className="text-ink">{cellOrDash(r["Pembayaran"])}</span>
@@ -1201,6 +1266,76 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
         >
           <span aria-hidden>{toast.kind === "success" ? "✓" : "❌"}</span>
           {toast.msg}
+        </div>
+      ) : null}
+
+      {expanded ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Tabel Pendaftar Terbaru — Tampilan penuh"
+          data-hermes-no-print
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setExpanded(false);
+          }}
+          className="z-[70]"
+        >
+          <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm" onClick={() => setExpanded(false)} aria-hidden />
+          <div className="fixed inset-x-3 inset-y-3 z-10 flex flex-col overflow-hidden rounded-[20px] border border-border bg-surface shadow-[var(--dm-shadow)] sm:inset-x-6 sm:inset-y-6">
+            <div className="flex flex-wrap items-center gap-3 border-b border-divider px-5 py-3.5">
+              <h3 className="text-[1.15rem] font-extrabold tracking-[-0.01em] text-ink">Pendaftar Terbaru</h3>
+              <span className="rounded-full bg-brand/10 px-2.5 py-0.5 text-[0.8rem] font-bold text-brand-hover">{recent.length}</span>
+              <div className="ml-auto flex items-center gap-2">
+                <Button variant="secondary" onClick={() => setExpanded(false)} className="shrink-0">⟵ Kembali</Button>
+                <Button variant="ghost" onClick={() => setExpanded(false)} ariaLabel="Tutup tampilan penuh">✕</Button>
+              </div>
+            </div>
+            <div className="min-h-0 flex-1 overflow-auto px-5 pb-5 pt-3">
+              {recent.length ? (
+                <div className="overflow-x-auto rounded-[14px] border border-divider">
+                  <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,3rem)_minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1fr)_auto] gap-4 border-b border-divider bg-white/90 px-4 py-2 text-[0.74rem] font-bold uppercase tracking-[0.02em] text-muted backdrop-blur-[8px]">
+                    <span>No</span>
+                    <span>Tanggal Masuk</span>
+                    <span>Nama</span>
+                    <span>WhatsApp</span>
+                    <span>Source</span>
+                    <span>Interview</span>
+                    <span>Hasil</span>
+                    <span>Pembayaran</span>
+                    <span>Status</span>
+                    <span aria-hidden>▾</span>
+                  </div>
+                  {recent.map((r, i) => {
+                    const m = matches.get(r);
+                    const nama = cellOrDash(r["Nama Lengkap"]);
+                    const wa = cellOrDash(r["Nomor Whatsapp"] || r["Nomor Handphone"] || "");
+                    return (
+                      <div key={i} className="grid grid-cols-[minmax(0,3rem)_minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1fr)_auto] items-center gap-4 border-b border-divider px-4 py-2 text-[0.86rem] transition-colors hover:bg-brand/5">
+                        <span className="text-right text-[0.78rem] font-semibold text-muted">{i + 1}</span>
+                        <span className="whitespace-nowrap text-muted" title={String(r["Timestamp"] ?? "")}>{tsDisplay(r["Timestamp"])}</span>
+                        <span className="min-w-0 truncate font-semibold text-ink" title={String(r["Nama Lengkap"] ?? "")}>{nama}</span>
+                        <span className="min-w-0 truncate text-muted" title={String(r["Nomor Whatsapp"] ?? "")}>{wa}</span>
+                        <span className="min-w-0 truncate text-muted" title={String(r["MENGETAHUI DUTA PERSADA DARI"] ?? "")}>{cellOrDash(r["MENGETAHUI DUTA PERSADA DARI"])}</span>
+                        <span className="whitespace-nowrap text-ink">{cellOrDash(r["Interview"])}</span>
+                        <span className="whitespace-nowrap text-ink">{cellOrDash(r["Hasil Interview\n(Diterima/Tidak)"])}</span>
+                        <span className="whitespace-nowrap text-ink">{cellOrDash(r["Pembayaran"])}</span>
+                        <span aria-hidden>
+                          {m ? (
+                            <span className="rounded-full px-2.5 py-0.5 text-[0.78rem] font-bold" style={{ backgroundColor: "rgba(34,160,107,0.12)", color: PALETTE.success }}>✓ Terdaftar</span>
+                          ) : (
+                            <span title="Belum cocok di WA Admin. Nama akan dicocokkan otomatis." className="rounded-full border border-muted/40 px-2.5 py-0.5 text-[0.78rem] font-semibold text-muted">Ambar</span>
+                          )}
+                        </span>
+                        <span aria-hidden className="text-muted">▾</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <EmptyState title="Belum ada pendaftar pada tahun ini." hint="Pilih tahun lain atau Semua Tahun." />
+              )}
+            </div>
+          </div>
         </div>
       ) : null}
     </section>
