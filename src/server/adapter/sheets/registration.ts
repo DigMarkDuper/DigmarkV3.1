@@ -10,10 +10,11 @@
  */
 
 import { REGISTRATION_COLUMNS, REGISTRATION_TAB } from "../registrationSchema";
-import type { Row } from "../source";
+import type { Result, Row } from "../source";
 import { TableCache } from "./cache";
 import type { SheetsApiClient } from "./client";
 import { normalizeRows } from "./read";
+import { updateCellInSheet } from "./write";
 
 /**
  * Fetch + normalize the registration table. Mirrors `readTable` but scoped to
@@ -61,5 +62,30 @@ export class RegistrationSource {
     const rows = await readRegistrationTable(this.api, this.spreadsheetId);
     this.cache.set(REGISTRATION_CACHE_KEY, rows);
     return rows;
+  }
+
+  /**
+   * Update one cell (by exact column header) in the registration "Form
+   * Responses 1" tab at `dataRowIndex` (0-based data index). Delegates to the
+   * shared `updateCellInSheet` primitive and, on success, invalidates the
+   * registration cache so the next `fetch()` returns fresh data.
+   */
+  async updateCell(
+    dataRowIndex: number,
+    columnName: string,
+    value: unknown,
+  ): Promise<Result> {
+    const res = await updateCellInSheet(
+      this.api,
+      this.spreadsheetId,
+      REGISTRATION_TAB,
+      dataRowIndex,
+      columnName,
+      value,
+    );
+    if (res.ok) {
+      this.cache.invalidate(REGISTRATION_CACHE_KEY);
+    }
+    return res;
   }
 }

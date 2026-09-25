@@ -59,6 +59,17 @@ import {
   type WaAdminFieldName,
 } from "@/workspaces/waAdminForm";
 import { rowToFormValue, changedFieldValues, validateWaAdminEdit } from "@/workspaces/waAdminEdit";
+import { buildMonthlyReport, reportPeriodOptions, type MonthlyReport } from "@/workspaces/waAdminReport";
+import { WaMonthlyReport } from "@/workspaces/MonthlyReport";
+import {
+  rowToRegFormValue,
+  changedRegFieldValues,
+  validateRegEdit,
+  regEditOptions,
+  regRowIndex,
+  type RegEditValues,
+  type RegEditFieldErrors,
+} from "@/workspaces/registrationEdit";
 import { WaAdminDataForm } from "@/components/ops/WaAdminDataForm";
 import { WaAdminEditData } from "@/components/ops/WaAdminEditData";
 
@@ -764,6 +775,24 @@ const KEY = WA_ADMIN_PAYLOAD_KEYS;
 const SUCCESS_EDIT_COPY = "Data berhasil diperbarui.";
 const ERROR_EDIT_COPY = "Data gagal diperbarui. Silakan coba lagi.";
 
+/** Compact `DD/MM/YYYY` from a registration Timestamp cell (or "—"). Local to
+ *  the recent-table read view; preserves the registration Timestamp as-is in
+ *  the underlying sheet (display only, never written back). */
+function tsDisplay(value: unknown): string {
+  const src = String(value ?? "").trim();
+  const m = src.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) {
+    const [, d, mo, y] = m;
+    return `${d.padStart(2, "0")}/${mo.padStart(2, "0")}/${y}`;
+  }
+  const iso = src.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    const [, y, mo, d] = iso;
+    return `${d}/${mo}/${y}`;
+  }
+  return src === "" ? "—" : src;
+}
+
 function RecentTable({ recent, matches, rows, onRefresh }: {
   recent: Row[];
   matches: Map<Row, RegistrationMatch>;
@@ -777,6 +806,13 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
   const [editValues, setEditValues] = useState<WaAdminFormValues | null>(null);
   const [errors, setErrors] = useState<WaAdminFieldErrors>({});
   const [saving, setSaving] = useState(false);
+  // Registration-row edit (persists to the Form Responses 1 workbook).
+  const [regEditingIndex, setRegEditingIndex] = useState<number | null>(null);
+  const [regRowIndexVal, setRegRowIndexVal] = useState(-1);
+  const [regPre, setRegPre] = useState<RegEditValues | null>(null);
+  const [regValues, setRegValues] = useState<RegEditValues | null>(null);
+  const [regErrors, setRegErrors] = useState<RegEditFieldErrors>({});
+  const [regSaving, setRegSaving] = useState(false);
   const [toast, setToast] = useState<{ kind: "success" | "error"; msg: string } | null>(null);
 
   useEffect(() => {
@@ -844,16 +880,26 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
     ];
   }
 
+  const closeRegEdit = () => {
+    setRegEditingIndex(null);
+    setRegRowIndexVal(-1);
+    setRegPre(null);
+    setRegValues(null);
+    setRegErrors({});
+  };
+
   const closeEdit = () => {
     setEditingIndex(null);
     setEditingRowIndex(-1);
     setPreFill(null);
     setEditValues(null);
     setErrors({});
+    closeRegEdit();
   };
 
   const openEdit = (i: number, m: RegistrationMatch) => {
     const pre = rowToFormValue(m.waRow);
+    closeRegEdit();
     setPreFill(pre);
     setEditValues(pre);
     setErrors({});
@@ -862,12 +908,51 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
     setOpenIndex(i);
   };
 
+  const openRegEdit = (i: number, r: Row) => {
+    const pre = rowToRegFormValue(r);
+    setEditingIndex(null);
+    setRegPre(pre);
+    setRegValues(pre);
+    setRegErrors({});
+    setRegEditingIndex(i);
+    setRegRowIndexVal(regRowIndex(r));
+    setOpenIndex(i);
+  };
+
   const setField = (field: WaAdminFieldName) => (v: string) =>
     setEditValues((cur) => (cur ? { ...cur, [field]: v } : cur));
 
+  const setRegField = (field: keyof RegEditValues) => (v: string) =>
+    setRegValues((cur) => (cur ? { ...cur, [field]: v } : cur));
+
   const toggleRow = (i: number) => {
     if (editingIndex !== null) closeEdit(); // escape discards the draft
+    if (regEditingIndex !== null) closeRegEdit();
     setOpenIndex((cur) => (cur === i ? null : i));
+  };
+
+  const handleRegSave = async (r: Row, e: FormEvent) => {
+    e.preventDefault();
+    if (regSaving || !regPre || !regValues || regRowIndexVal < 0) return;
+    const errs = validateRegEdit(regValues);
+    setRegErrors(errs);
+    if (Object.keys(errs).length) return;
+    const changed = changedRegFieldValues(regPre, regValues);
+    if (changed.length === 0) {
+      await finishSuccess();
+      return;
+    }
+    setRegSaving(true);
+    try {
+      for (const { column, value } of changed) {
+        await patchJson("/api/registration/data", { rowIndex: regRowIndexVal, column, value });
+      }
+      setRegSaving(false);
+      await finishSuccess();
+    } catch {
+      setRegSaving(false);
+      setToast({ kind: "error", msg: ERROR_EDIT_COPY });
+    }
   };
 
   const finishSuccess = async () => {
@@ -915,7 +1000,7 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
           <span className="text-[0.72rem] text-muted">Klik baris untuk melihat detail data.</span>
         </div>
         <span className="rounded-full border border-muted/40 px-2.5 py-0.5 text-[0.72rem] font-medium text-muted">
-          ✏️ Ubah di baris yang cocok WA Admin.
+          ✏️ Form = edit Form Pendaftaran · ✏️ Ubah = edit WA Admin.
         </span>
       </div>
       {recent.length === 0 ? (
@@ -924,10 +1009,11 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
         </div>
       ) : (
         <div className="max-h-[520px] overflow-y-auto rounded-[14px] border border-divider">
-          <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_auto_auto] gap-4 border-b border-divider bg-white/90 px-3 py-2 text-[0.72rem] font-bold uppercase tracking-[0.02em] text-muted backdrop-blur-[8px]">
+          <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_auto_auto] gap-4 border-b border-divider bg-white/90 px-3 py-2 text-[0.72rem] font-bold uppercase tracking-[0.02em] text-muted backdrop-blur-[8px]">
             <span>Nama</span>
             <span>WhatsApp</span>
             <span>Source</span>
+            <span>Tanggal</span>
             <span>Interview</span>
             <span>Hasil</span>
             <span>Pembayaran</span>
@@ -948,11 +1034,12 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
                     aria-expanded={open}
                     aria-controls={open ? `recent-detail-${i}` : undefined}
                     disabled={saving}
-                    className="col-span-7 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_auto] items-center gap-4 px-3 py-2 text-left text-[0.84rem] transition-colors hover:bg-brand/5 focus-visible:bg-brand/10 focus-visible:outline-none"
+                    className="col-span-8 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_auto] items-center gap-4 px-3 py-2 text-left text-[0.84rem] transition-colors hover:bg-brand/5 focus-visible:bg-brand/10 focus-visible:outline-none"
                   >
                     <span className="min-w-0 truncate text-ink" title={String(r["Nama Lengkap"] ?? "")}>{nama}</span>
                     <span className="min-w-0 truncate text-muted" title={String(r["Nomor Whatsapp"] ?? "")}>{wa}</span>
                     <span className="min-w-0 truncate text-muted" title={String(r["MENGETAHUI DUTA PERSADA DARI"] ?? "")}>{cellOrDash(r["MENGETAHUI DUTA PERSADA DARI"])}</span>
+                    <span className="whitespace-nowrap text-[0.78rem] text-muted" title={String(r["Timestamp"] ?? "")}>{tsDisplay(r["Timestamp"])}</span>
                     <span className="text-ink">{cellOrDash(r["Interview"])}</span>
                     <span className="text-ink">{cellOrDash(r["Hasil Interview\n(Diterima/Tidak)"])}</span>
                     <span className="text-ink">{cellOrDash(r["Pembayaran"])}</span>
@@ -971,6 +1058,15 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
                   </button>
                   <div className="flex items-center justify-end gap-1.5 pr-3">
                     <span className="sr-only">{m ? "✓ Terdaftar" : "Ambar"}</span>
+                    <Button
+                      variant="ghost"
+                      disabled={saving || regSaving}
+                      onClick={() => openRegEdit(i, r)}
+                      ariaLabel={`Ubah data Form Pendaftaran untuk ${nama}`}
+                      className="shrink-0 px-2.5 py-1 text-[0.82rem] font-semibold"
+                    >
+                      ✏️ Form
+                    </Button>
                     {m ? (
                       <Button
                         variant="ghost"
@@ -1021,6 +1117,39 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
                             <Button variant="ghost" type="button" disabled={saving} onClick={closeEdit}>Batal</Button>
                             <Button variant="primary" type="submit" disabled={saving}>
                               {saving ? "Menyimpan…" : "Simpan Perubahan"}
+                            </Button>
+                          </div>
+                        </form>
+                      </div>
+                    ) : null}
+                    {regEditingIndex === i ? (
+                      <div className="rounded-[14px] border border-brand/30 bg-white/70 px-4 py-3">
+                        <div className="mb-2 flex flex-wrap items-center gap-3">
+                          <h5 className="text-[0.9rem] font-extrabold text-ink">✏️ Ubah Data Form Pendaftaran</h5>
+                          <span className="rounded-full bg-brand/10 px-2.5 py-0.5 text-[0.78rem] font-bold text-brand-hover">
+                            Baris #{regRowIndexVal + 1} · Form Responses 1
+                          </span>
+                        </div>
+                        <p id={`recent-reg-hint-${i}`} className="text-[0.8rem] text-muted">
+                          Satu kolom berubah = satu PATCH ke spreadsheet Form Pendaftaran (registration). Kolom lain tidak akan disentuh.
+                        </p>
+                        <form noValidate onSubmit={(e) => handleRegSave(r, e)} aria-describedby={`recent-reg-hint-${i}`}>
+                          <div className="mt-3 grid grid-cols-2 items-end gap-x-4 gap-y-3 md:grid-cols-3">
+                            <InlineTextField id={`reg-nama-${i}`} label="Nama Lengkap" value={regValues?.nama ?? ""} onInput={setRegField("nama")} error={regErrors.nama} />
+                            <InlineTextField id={`reg-wa-${i}`} label="Nomor WhatsApp" value={regValues?.whatsapp ?? ""} onInput={setRegField("whatsapp")} error={regErrors.whatsapp} />
+                            <InlineSelectField id={`reg-source-${i}`} label="Mengetahui dari" value={regValues?.source ?? ""} onSelect={setRegField("source")} options={regEditOptions(recent, "source")} />
+                            <InlineSelectField id={`reg-pic-${i}`} label="PIC" value={regValues?.pic ?? ""} onSelect={setRegField("pic")} options={regEditOptions(recent, "pic")} />
+                            <InlineSelectField id={`reg-penjadwalan-${i}`} label="Penjadwalan Interview" value={regValues?.penjadwalan ?? ""} onSelect={setRegField("penjadwalan")} options={regEditOptions(recent, "penjadwalan")} />
+                            <InlineSelectField id={`reg-interview-${i}`} label="Interview" value={regValues?.interview ?? ""} onSelect={setRegField("interview")} options={regEditOptions(recent, "interview")} />
+                            <InlineSelectField id={`reg-hasil-${i}`} label="Hasil Interview" value={regValues?.hasil ?? ""} onSelect={setRegField("hasil")} options={regEditOptions(recent, "hasil")} />
+                            <InlineSelectField id={`reg-juknis-${i}`} label="Pengiriman Juknis" value={regValues?.juknis ?? ""} onSelect={setRegField("juknis")} options={regEditOptions(recent, "juknis")} />
+                            <InlineSelectField id={`reg-pembayaran-${i}`} label="Pembayaran" value={regValues?.pembayaran ?? ""} onSelect={setRegField("pembayaran")} options={regEditOptions(recent, "pembayaran")} />
+                            <InlineSelectField id={`reg-grup-${i}`} label="Invite Grup" value={regValues?.grup ?? ""} onSelect={setRegField("grup")} options={regEditOptions(recent, "grup")} />
+                          </div>
+                          <div className="mt-3 flex items-center justify-end gap-3">
+                            <Button variant="ghost" type="button" disabled={regSaving} onClick={closeRegEdit}>Batal</Button>
+                            <Button variant="primary" type="submit" disabled={regSaving}>
+                              {regSaving ? "Menyimpan…" : "Simpan ke Form Pendaftaran"}
                             </Button>
                           </div>
                         </form>
@@ -1210,6 +1339,25 @@ export function WaAdminDashboard({
   const handleExportPdf = () => {
     window.print();
   };
+
+  // --- Monthly WA Admin Report (P4) ---------------------------------------
+  const [selPeriod, setSelPeriod] = useState<string>("CURRENT");
+  const [customMonth, setCustomMonth] = useState<string>("");
+  const effPeriod = customMonth.trim() === "" ? selPeriod : customMonth.trim();
+  const monthlyReport = useMemo<MonthlyReport>(
+    () =>
+      buildMonthlyReport({
+        waRows: rows,
+        registrationRows,
+        period: effPeriod,
+        now: new Date(),
+      }),
+    [rows, registrationRows, effPeriod],
+  );
+  const periodOptions = useMemo(
+    () => reportPeriodOptions(new Date(), 6),
+    [],
+  );
 
   const activeMonthLabel =
     selMonth === allMonthsLabel
@@ -1500,18 +1648,44 @@ export function WaAdminDashboard({
                 <Divider />
 
                 {/* 5. Ekspor */}
-                <SectionHeader title="Ekspor" subtitle="Unduh data CSV atau cetak Quick Report (PDF) untuk atasan." />
-                <div className="flex flex-wrap justify-start gap-3">
-                  <Button variant="primary" onClick={handleExport}>
-                    ⬇️ Unduh Data (CSV)
-                  </Button>
-                  <Button variant="secondary" onClick={handleExportPdf}>
-                    🖨️ Cetak Quick Report (PDF)
-                  </Button>
+                <SectionHeader title="Ekspor" subtitle="Unduh CSV, pilih periode, lalu cetak Laporan Bulanan (PDF) untuk atasan." />
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="min-w-64">
+                    <Select
+                      label="Periode Laporan Bulanan"
+                      value={selPeriod}
+                      options={periodOptions}
+                      onSelect={(v) => setSelPeriod(v)}
+                    />
+                  </div>
+                  <div className="min-w-48">
+                    <label htmlFor="wa-report-custom-month" className="mb-1 block text-[0.68rem] font-bold uppercase tracking-[0.04em] text-muted">
+                      Atau pilih bulan lain
+                    </label>
+                    <input
+                      id="wa-report-custom-month"
+                      type="month"
+                      value={customMonth}
+                      onChange={(e) => setCustomMonth(e.target.value)}
+                      className="w-full rounded-[10px] border border-border bg-surface px-3 py-2 text-[0.84rem] text-ink outline-none transition focus:border-brand/60 focus:ring-2 focus:ring-brand/20"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <Button variant="primary" onClick={handleExport}>
+                      ⬇️ Unduh Data (CSV)
+                    </Button>
+                    <Button variant="secondary" onClick={handleExportPdf}>
+                      🖨️ Cetak Laporan Bulanan (PDF)
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="mt-6 print-only-report">
                   <QuickReport stats={stats} monthLabel={activeMonthLabel} />
+                </div>
+
+                <div className="mt-6 print-only-report">
+                  <WaMonthlyReport report={monthlyReport} />
                 </div>
               </>
             )}

@@ -72,3 +72,53 @@ describe("registration read path + source (FakeApi)", () => {
     expect(rows[0]).not.toHaveProperty("SECRET EXTRA");
   });
 });
+
+describe("RegistrationSource.updateCell (write path + cache invalidation)", () => {
+  function sourceWithRow() {
+    const api = new FakeApi([{
+      title: REGISTRATION_TAB,
+      gid: 1,
+      values: [REGISTRATION_COLUMNS, regValues("1/13/2026 16:35:42")],
+    }]);
+    return { api, src: new RegistrationSource(api, "fake") };
+  }
+
+  it("writes the cell by exact header into the Form Responses 1 tab (dataRow+2)", async () => {
+    const { api, src } = sourceWithRow();
+    const res = await src.updateCell(0, "Nama Lengkap", "Budi Baru");
+    expect(res).toEqual({ ok: true, affected: 1 });
+    // Row 0 (data) -> sheet row 2; "Nama Lengkap" is col B.
+    expect(api.tabs[0].values[1][1]).toBe("Budi Baru");
+  });
+
+  it("invalidates the registration cache after a successful write", async () => {
+    const { api, src } = sourceWithRow();
+    await src.fetch(); // prime cache
+    const res = await src.updateCell(0, "Nama Lengkap", "Budi Baru");
+    expect(res.ok).toBe(true);
+    // Cache is invalidated -> next fetch re-reads the updated value.
+    const fresh = await src.fetch();
+    expect(fresh[0]["Nama Lengkap"]).toBe("Budi Baru");
+  });
+
+  it("returns COLUMN_NOT_FOUND for an unknown header and does NOT invalidate", async () => {
+    const { src } = sourceWithRow();
+    await src.fetch();
+    const res = await src.updateCell(0, "Tidak Ada Kolom", "x");
+    expect(res.ok).toBe(false);
+    expect(res.code).toBe("COLUMN_NOT_FOUND");
+  });
+
+  it("keeps untouched columns intact (only the targeted cell changes)", async () => {
+    const { api, src } = sourceWithRow();
+    await src.updateCell(0, "PIC", "ONLINE2");
+    const row = api.tabs[0].values[1];
+    // Other cells untouched: Nama Lengkap, Whatsapp, source, stage values stay.
+    expect(row[1]).toBe("Nama Test");
+    expect(row[11]).toBe("62813000001");
+    expect(row[21]).toBe("Instagram");
+    expect(row[28]).toBe("Ya");
+    // PIC col updated only.
+    expect(row[REGISTRATION_COLUMNS.indexOf("PIC")]).toBe("ONLINE2");
+  });
+});
