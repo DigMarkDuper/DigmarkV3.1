@@ -2,11 +2,20 @@
 
 /* ============================================================================
    DIGMARK V3.1 — GLOBAL DESIGN SYSTEM (UI_DESIGN_SPEC.md §B)
+   Phase 1 restyle: the "Sneat" sober admin look.
    ============================================================================
-   This replaces the Phase A shell (Geist + zinc palette + Arial). The V3
-   validated glassmorphism design language is the single source of truth for
-   every token below. Hex values are [PRESERVED] verbatim from
-   src/config/constants.ts / V3 ui/components.py.
+   This replaces the Phase A shell (Geist + zinc palette + Arial).
+
+   Every variable NAME below is UNCHANGED from the V3 glassmorphism system —
+   only VALUES move, so no component needs editing to pick up the restyle.
+   Reference values are read from
+   themeselection/sneat-bootstrap-html-admin-template-free @ main:
+     --bs-body-bg #f5f5f9 · --bs-body-color #646e78
+     --bs-border-color #e4e6e8 · --bs-border-radius .375rem
+     --bs-box-shadow     0 .1875rem .5rem rgba(34,48,62,.1)
+     --bs-box-shadow-sm  0 .125rem .375rem rgba(34,48,62,.08)
+     --bs-box-shadow-lg  0 .25rem .75rem rgba(34,48,62,.14)
+     --bs-heading-color #384551 · --bs-emphasis-color #22303e
 
    NOTE: V3 has NO dark theme and the glass recipe relies on white gradients,
    so the Phase A `prefers-color-scheme: dark` block was intentionally REMOVED
@@ -18,55 +27,110 @@
    ========================================================================== */
 
 :root {
-  /* --- Brand palette (spec B.2) [PRESERVED] ------------------------------- */
-  --dm-blue: #0058a3;        /* brand  */
-  --dm-blue-hover: #0a6fbf;  /* brand-hover */
-  --dm-yellow: #ffdb00;      /* accent */
-  --dm-ink: #102a43;
-  --dm-muted: #5b6b7e;
-  --dm-grid: #e6ebf2;
-  --dm-success: #22a06b;
-  --dm-warning: #e8930c;
-  --dm-danger: #d64550;
+  /* --- Brand palette (spec B.2) --------------------------------------------
+     Sneat's primary is #3E7BFA; the #696CFF in the current free template is
+     a later purple re-skin, so Digmark keeps its blue identity. #22303E is
+     Sneat's --bs-emphasis-color and becomes the section/heading navy.
+     Yellow is demoted to a subordinate warm amber: dots, 4px rules, fills. */
+  --dm-blue: #3e7bfa;        /* brand  */
+  --dm-blue-hover: #2e7af6;  /* brand-hover */
+  --dm-yellow: #e8a317;      /* accent — subordinate warm amber */
+  --dm-ink: #22303e;         /* Sneat --bs-emphasis-color (dark navy) */
+  --dm-muted: #646e78;       /* Sneat --bs-body-color */
+  --dm-grid: #e4e6e8;        /* Sneat --bs-border-color, chart gridlines */
+  --dm-success: #2dce89;
+  --dm-warning: #ffb547;
+  --dm-danger: #ea4253;
 
-  /* --- Glass surfaces (spec B.2) [PRESERVED] ------------------------------ */
-  --dm-surface: rgba(255, 255, 255, 0.72);
-  --dm-surface-strong: rgba(255, 255, 255, 0.85);
-  --dm-surface-input: rgba(255, 255, 255, 0.55);
-  --dm-border: rgba(255, 255, 255, 0.9);
-  --dm-divider: rgba(0, 88, 163, 0.12);
-  --dm-blue-glow: rgba(0, 88, 163, 0.1);
-  --dm-yellow-glow: rgba(255, 219, 0, 0.14);
+  /* --- Surfaces (spec B.2) — OPAQUE --------------------------------------
+     The rgba(.72/.85/.55) translucent glass becomes opaque white so cards
+     stack without ghosting. Sneat: card #FFF on page #F1F5F9. */
+  --dm-surface: #ffffff;
+  --dm-surface-strong: #ffffff;
+  --dm-surface-input: #ffffff;
+  --dm-border: #e2e8f0;
+  --dm-divider: #eef2f6;
+  --dm-blue-glow: rgba(62, 123, 250, 0.06);
+  --dm-yellow-glow: rgba(232, 163, 23, 0.08);
   --dm-ink-on-brand: #ffffff;
 
-  /* --- Border radius scale (spec B.4) ------------------------------------- */
-  --dm-radius-sm: 10px;     /* tabs top, 34px icon tiles */
-  --dm-radius-sm6: 12px;    /* buttons, inputs, Home pill */
-  --dm-radius-md: 14px;     /* metric chips, small cards */
-  --dm-radius-md16: 16px;   /* monogram tile, 52/54px module icons */
-  --dm-radius-lg: 20px;     /* metric / workspace cards */
-  --dm-radius-panel: 22px;  /* hero visual panel */
-  --dm-radius-pill: 9999px; /* chips, badges, balls */
+  /* --- App shell geometry + sidebar surfaces (Phase 2 Sneat shell) ---------
+     The sidebar/topbar pair is the primary navigation for every workspace.
+     --dm-shell-pad is the ONE width source: AppShell re-points it at the rail
+     value when collapsed, and both the sidebar width and the content column's
+     padding-left read it, so the two can never drift apart. The hover-expand
+     on a collapsed rail is an absolute overlay (no reflow) so wide grids such
+     as the /wa-admin treemap are never re-measured mid-interaction. */
+  --dm-sidebar-bg: #ffffff;
+  --dm-sidebar-hover: #f4f7fb;
+  --dm-sidebar-active: #e8effe;
+  --dm-sidebar-text: #646e78;
+  --dm-shell-pad: 260px;      /* expanded sidebar / content offset */
+  --dm-shell-pad-full: var(--dm-shell-pad); /* self-alias: AppShell sets the
+     live --dm-shell-pad to this when expanded. A custom property may not
+     reference itself, so the expanded value needs its own name or the var
+     becomes invalid at computed-value time and every reader falls back to
+     auto width. */
+  --dm-shell-pad-rail: 76px;  /* collapsed rail */
+  --dm-drawer-w: 280px;       /* < lg off-canvas drawer width */
+  --dm-topbar-h: 60px;
 
-  /* --- Shadow scale (spec B.4) -------------------------------------------- */
-  --dm-shadow-xs: 0 3px 10px rgba(0, 88, 163, 0.08);
-  --dm-shadow-xs-b6: 0 4px 12px rgba(0, 88, 163, 0.1);
-  --dm-shadow: 0 8px 22px rgba(0, 88, 163, 0.1);
-  --dm-shadow-hover: 0 18px 38px rgba(0, 88, 163, 0.2);
-  --dm-shadow-lift: 0 20px 45px rgba(0, 88, 163, 0.18);
-  --dm-shadow-cta: 0 6px 18px rgba(0, 88, 163, 0.25);
-  --dm-shadow-cta-hover: 0 10px 24px rgba(0, 88, 163, 0.32);
-  --dm-shadow-panel: 0 18px 40px rgba(0, 88, 163, 0.16);
-  --dm-shadow-home-hover: 0 8px 18px rgba(0, 88, 163, 0.22);
-  --dm-shadow-mono: 0 8px 20px rgba(0, 88, 163, 0.3);
-  --dm-shadow-arrow: 0 2px 6px rgba(255, 219, 0, 0.35);
-  --dm-shadow-ball: 0 10px 24px rgba(240, 200, 0, 0.4);
+  /* --- Border radius scale (spec B.4) -------------------------------------
+     Swept down from 10-22px into Sneat's 4-10px band (max 12px). */
+  --dm-radius-sm: 4px;     /* tabs top, 34px icon tiles */
+  --dm-radius-sm6: 6px;    /* buttons, inputs, Home pill */
+  --dm-radius-md: 8px;     /* metric chips, small cards */
+  --dm-radius-md16: 8px;   /* monogram tile, 52/54px module icons */
+  --dm-radius-lg: 10px;    /* metric / workspace cards */
+  --dm-radius-panel: 12px; /* hero visual panel */
+  --dm-radius-pill: 9999px;/* chips, badges, balls */
 
-  /* --- Typography (spec B.1) ---------------------------------------------- */
-  /* --font-manrope is injected by next/font/google in app/layout.tsx. Fallback
-     matches V3. `font-sans` and every font-manrope reference resolve here. */
+  /* --- Shadow scale (spec B.4) --------------------------------------------
+     The blue-tinted 8-45px lifts become Sneat's neutral grey 1-8px set.
+     Names all kept; xs/xs-b6 converge on purpose. */
+  --dm-shadow-xs: 0 1px 2px rgba(34, 48, 62, 0.06);
+  --dm-shadow-xs-b6: 0 1px 2px rgba(34, 48, 62, 0.06);
+  --dm-shadow: 0 1px 3px rgba(34, 48, 62, 0.1);
+  --dm-shadow-hover: 0 3px 6px rgba(34, 48, 62, 0.1);
+  --dm-shadow-lift: 0 4px 8px rgba(34, 48, 62, 0.1);
+  --dm-shadow-cta: 0 1px 2px rgba(62, 123, 250, 0.24);
+  --dm-shadow-cta-hover: 0 2px 4px rgba(62, 123, 250, 0.28);
+  --dm-shadow-panel: 0 3px 8px rgba(34, 48, 62, 0.08);
+  --dm-shadow-home-hover: 0 2px 4px rgba(34, 48, 62, 0.12);
+  --dm-shadow-mono: 0 1px 2px rgba(34, 48, 62, 0.12);
+  --dm-shadow-arrow: 0 1px 2px rgba(120, 83, 0, 0.18);
+  --dm-shadow-ball: 0 1px 3px rgba(120, 83, 0, 0.22);
+
+  /* --- Typography (spec B.1) ----------------------------------------------
+     --font-manrope is injected by next/font/google in app/layout.tsx.
+     Sneat ships Public Sans; Manrope is kept per the V3 brand, but the
+     size / weight / leading VALUES below are Sneat's (base 15px @ 1.375,
+     dense 13px table cells, 28px metric figures). */
   --font-sans: var(--font-manrope), Manrope, ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, Menlo, Consolas, monospace;
+
+  /* Sneat type scale — reference for the component pass. Deliberately NOT
+     wired into @theme: components keep their literal text-[Nrem] utilities,
+     so this stays documentation plus the single knob for a later scale pass. */
+  --dm-type-page-title: 1.5rem;    /* 24px / w700 / ls -0.01em / lh 1.25 */
+  --dm-type-section: 1.125rem;    /* 18px / w600 / ls -0.005em / lh 1.35 */
+  --dm-type-card-title: 0.9375rem; /* 15px / w600 / ls 0 / lh 1.4 */
+  --dm-type-metric: 1.75rem;      /* 28px / w700 / ls -0.02em / lh 1.1 */
+  --dm-type-body: 0.875rem;       /* 14px / w400 / lh 1.45 */
+  --dm-type-label: 0.75rem;       /* 12px / w600 / ls 0.04em / lh 1.3 caps */
+  --dm-type-cell: 0.8125rem;      /* 13px / w400 / lh 1.45 */
+  --dm-type-button: 0.875rem;     /* 14px / w500 */
+
+  /* --- Spacing rhythm (spec B.4) ------------------------------------------
+     4px base. Sneat: table cell .782rem/1.25rem, button .4812rem/1.25rem,
+     card gutter 1.5rem ($spacer * 1.5). */
+  --dm-space-1: 4px;
+  --dm-space-2: 8px;
+  --dm-space-3: 12px;
+  --dm-space-4: 16px;
+  --dm-space-5: 20px;
+  --dm-space-6: 24px;  /* card padding / grid gutter */
+  --dm-space-8: 32px;
 }
 
 /* Semantic colour tokens that generate the bg-/text-/border-/ring- utilities
@@ -90,26 +154,32 @@
   --color-yellow-glow: var(--dm-yellow-glow);
   --color-ink-on-brand: var(--dm-ink-on-brand);
   --color-focus-ring: var(--dm-blue);
+  --color-sidebar: var(--dm-sidebar-bg);
+  --color-sidebar-hover: var(--dm-sidebar-hover);
+  --color-sidebar-active: var(--dm-sidebar-active);
+  --color-nav: var(--dm-sidebar-text);
 }
 
-/* App-level background layers (spec B.5) [PRESERVED] — painted once, fixed.
-   A dedicated full-height element (src/components/layout/Background.tsx) so
-   opaque content (tables with sticky headers) still reads the glow. */
+/* App-level background layers (spec B.5) — painted once, fixed.
+   Flat Sneat page gray. The two V3 radial glows and the 3-stop
+   blue→cream gradient are REMOVED — they are exactly what made the glass
+   read as glass. A dedicated full-height element (Background.tsx) is kept so
+   opaque content (tables with sticky headers) still paints the page color. */
 .dm-bg-layer {
   position: fixed;
   inset: 0;
   z-index: -10;
   pointer-events: none;
-  background-image:
-    radial-gradient(1200px 600px at 12% -8%, rgba(0, 88, 163, 0.1), transparent 60%),
-    radial-gradient(1000px 520px at 108% 0%, rgba(255, 219, 0, 0.14), transparent 55%),
-    linear-gradient(165deg, #eef3fb 0%, #f7f9fd 48%, #fbf6e6 100%);
+  background-color: #f1f5f9;
+  background-image: linear-gradient(180deg, #f4f7fb 0%, #f1f5f9 260px);
 }
 
 body {
   color: var(--dm-ink);
   background-color: transparent; /* real painting happens on .dm-bg-layer */
   font-family: var(--font-sans);
+  font-size: 14px;      /* Sneat $font-size-base .9375rem */
+  line-height: 1.45;
   -webkit-font-smoothing: antialiased;
 }
 

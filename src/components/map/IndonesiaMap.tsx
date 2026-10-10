@@ -189,15 +189,15 @@ export function IndonesiaMap({ provinces, provinceRegions }: IndonesiaMapProps) 
       {/* Zoom / pan controls (card-style, always visible, responsive). */}
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" aria-label="Perbesar peta" onClick={zoomIn}
-          className="h-9 w-9 rounded-[10px] border border-border bg-surface text-[1.1rem] font-bold text-ink hover:bg-surface-strong">+</button>
+          className="h-9 w-9 rounded-[6px] border border-border bg-surface text-[1.1rem] font-bold text-ink hover:bg-surface-strong">+</button>
         <button type="button" aria-label="Perkecil peta" onClick={zoomOut}
-          className="h-9 w-9 rounded-[10px] border border-border bg-surface text-[1.1rem] font-bold text-ink hover:bg-surface-strong">−</button>
+          className="h-9 w-9 rounded-[6px] border border-border bg-surface text-[1.1rem] font-bold text-ink hover:bg-surface-strong">−</button>
         <button type="button" aria-label="Reset tampilan peta" onClick={resetView}
-          className="h-9 rounded-[10px] border border-border bg-surface px-3 text-[0.84rem] font-semibold text-ink hover:bg-surface-strong">Reset</button>
+          className="h-9 rounded-[6px] border border-border bg-surface px-3 text-[0.84rem] font-semibold text-ink hover:bg-surface-strong">Reset</button>
         <span className="ml-auto text-[0.76rem] text-muted">Gulir untuk zoom · seret untuk geser · klik untuk detail</span>
       </div>
 
-      <div className="relative mt-3 overflow-hidden rounded-[16px] border border-border bg-surface">
+      <div className="relative mt-3 overflow-hidden rounded-[8px] border border-border bg-surface">
         <svg
           viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
           preserveAspectRatio="xMidYMid meet"
@@ -227,7 +227,7 @@ export function IndonesiaMap({ provinces, provinceRegions }: IndonesiaMapProps) 
           const pct = p?.pct ?? 0;
           return (
             <div
-              className="pointer-events-none absolute z-20 rounded-[12px] border border-border bg-surface px-3 py-2 shadow-[var(--dm-shadow)]"
+              className="pointer-events-none absolute z-20 rounded-[8px] border border-border bg-surface px-3 py-2 shadow-[var(--dm-shadow)]"
               style={{ left: `${Math.min(hover.x, 210)}px`, top: `${Math.max(0, hover.y - 96)}px` }}
             >
               <div className="text-[0.84rem] font-bold text-ink">{hover.province}</div>
@@ -243,7 +243,7 @@ export function IndonesiaMap({ provinces, provinceRegions }: IndonesiaMapProps) 
 
       {/* Click detail panel: province total + per-region breakdown. */}
       {selected && selPoint ? (
-        <div className="mt-3 rounded-[16px] border border-border bg-surface p-4">
+        <div className="mt-3 rounded-[8px] border border-border bg-surface p-4">
           <div className="flex items-center justify-between">
             <h4 className="text-[1rem] font-bold text-ink">{selected}</h4>
             <button type="button" onClick={() => setSelected(null)}
@@ -257,7 +257,7 @@ export function IndonesiaMap({ provinces, provinceRegions }: IndonesiaMapProps) 
             <ul className="mt-3 flex flex-col gap-1">
               {selRows.map((row) => (
                 <li key={row.region}
-                  className="flex items-center justify-between rounded-[10px] border border-divider bg-white/50 px-3 py-1.5">
+                  className="flex items-center justify-between rounded-[6px] border border-divider bg-white/50 px-3 py-1.5">
                   <span className="text-[0.86rem] text-ink">{row.region}</span>
                   <span className="text-[0.86rem] font-semibold text-ink">{formatCount(row.count)}</span>
                 </li>

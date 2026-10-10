@@ -7,7 +7,7 @@
 type InputType = "text" | "password" | "email" | "number" | "tel" | "search" | "url";
 
 const FIELD_BASE =
-  "w-full h-10 px-3 rounded-[12px] bg-surface-input border border-border text-ink " +
+  "w-full h-10 px-3 rounded-[8px] bg-surface-input border border-border text-ink " +
   "placeholder:text-muted/70 focus:border-brand focus:shadow-[var(--dm-shadow-xs)] " +
   "focus:ring-2 focus:ring-brand focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
 
@@ -87,7 +87,7 @@ export function Select({
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
-        <span aria-hidden className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-accent">
+        <span aria-hidden className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted">
           ▾
         </span>
       </span>
@@ -114,7 +114,7 @@ export function Checkbox({
         type="checkbox"
         checked={checked}
         disabled={disabled}
-        className="h-[18px] w-[18px] rounded-[5px] border-2 border-brand/40 accent-brand focus:ring-2 focus:ring-brand focus:ring-offset-2"
+        className="h-[18px] w-[18px] rounded-[4px] border-2 border-brand/40 accent-brand focus:ring-2 focus:ring-brand focus:ring-offset-2"
         onChange={(e) => onToggle?.(e.target.checked)}
       />
       {label ? (

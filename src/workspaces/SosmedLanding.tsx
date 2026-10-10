@@ -29,7 +29,7 @@ export function SosmedLanding() {
           <Link
             href="/sosmed/planning"
             aria-label="Planning Social Media — Perencanaan konten: content plan, calendar, list, dan master content data."
-            className="group relative flex flex-col gap-3 rounded-[16px] border border-border bg-surface p-6 shadow-[var(--dm-shadow-xs)] backdrop-blur-[8px] transition-colors hover:border-brand/40 hover:shadow-[var(--dm-shadow)]"
+            className="group relative flex flex-col gap-3 rounded-[8px] border border-border bg-surface p-6 shadow-[var(--dm-shadow-xs)] transition-colors hover:border-brand/40 hover:shadow-[var(--dm-shadow)]"
           >
             <div className="flex items-start justify-between gap-3">
               <span aria-hidden className="text-[2rem]">📋</span>
@@ -42,7 +42,7 @@ export function SosmedLanding() {
           <Link
             href="/sosmed/reporting"
             aria-label="Reporting &amp; Production — monitoring produksi: overview, deadline, workload, publishing, dan output trend."
-            className="group relative flex flex-col gap-3 rounded-[16px] border border-border bg-surface p-6 shadow-[var(--dm-shadow-xs)] backdrop-blur-[8px] transition-colors hover:border-brand/40 hover:shadow-[var(--dm-shadow)]"
+            className="group relative flex flex-col gap-3 rounded-[8px] border border-border bg-surface p-6 shadow-[var(--dm-shadow-xs)] transition-colors hover:border-brand/40 hover:shadow-[var(--dm-shadow)]"
           >
             <div className="flex items-start justify-between gap-3">
               <span aria-hidden className="text-[2rem]">📊</span>

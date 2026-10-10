@@ -23,10 +23,10 @@ export function MetricCard({
 }: MetricCardProps) {
   return (
     <article
-      className="dm-metric flex flex-col gap-1 rounded-[20px] border border-border bg-surface p-4 backdrop-blur-[10px] saturate-[140%] shadow-[var(--dm-shadow)] transition-all duration-200 hover:-translate-y-[2px] hover:bg-surface-strong hover:shadow-[var(--dm-shadow-hover)] motion-reduce:hover:translate-y-0"
+      className="dm-metric flex flex-col gap-1 rounded-[10px] border border-border bg-surface p-4 shadow-[var(--dm-shadow)] transition-all duration-200 hover:-translate-y-[2px] hover:bg-surface-strong hover:shadow-[var(--dm-shadow-hover)] motion-reduce:hover:translate-y-0"
     >
       <div className="flex items-center gap-2">
-        <span aria-hidden className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] bg-gradient-to-br from-brand/10 to-brand/16 text-[1rem]">
+        <span aria-hidden className="flex h-[34px] w-[34px] items-center justify-center rounded-[6px] bg-blue-glow text-[1rem]">
           {icon}
         </span>
         <span className="text-[0.82rem] font-semibold text-muted">{label}</span>
@@ -34,7 +34,7 @@ export function MetricCard({
       {loading ? (
         <div aria-busy="true" className="mt-1 h-6 w-2/5 rounded bg-muted/20 animate-pulse" />
       ) : (
-        <div className="mt-1 text-[1.6rem] font-extrabold leading-[1.05] tracking-[-0.02em] text-ink">
+        <div className="mt-1 text-[1.75rem] font-extrabold leading-[1.1] tracking-[-0.02em] text-ink">
           {value}
         </div>
       )}

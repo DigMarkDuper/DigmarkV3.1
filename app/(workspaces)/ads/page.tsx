@@ -14,12 +14,10 @@
  */
 import { useApi, type ApiFailure } from "@/lib/api-client";
 import { columnsFor } from "@/server/adapter/schema";
-import { Topbar } from "@/components/layout/Topbar";
-import { Footer } from "@/components/layout/Footer";
-import { WorkspaceNav } from "@/components/layout/WorkspaceNav";
 import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/sections/LoadingState";
 import { ErrorState } from "@/components/sections/ErrorState";
+import { WorkspaceBody } from "@/components/layout/WorkspaceBody";
 import { AdsDashboard, type AdsMetrics } from "@/workspaces/AdsDashboard";
 
 interface AuthMe { ok: boolean; identity: string; role: string }
@@ -32,8 +30,8 @@ function isAuthFailure(f?: ApiFailure): boolean {
 
 function AuthGate() {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/60 backdrop-blur-md px-4">
-      <div className="w-full max-w-md rounded-[20px] border border-border bg-surface p-8 shadow-[var(--dm-shadow)]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface px-4">
+      <div className="w-full max-w-md rounded-[10px] border border-border bg-surface p-8 shadow-[var(--dm-shadow)]">
         <div className="text-[1.35rem] font-extrabold text-ink">Sign in to continue</div>
         <p className="mt-2 text-[0.95rem] leading-[1.5] text-muted">
           Signed-in session required to view the Ads workspace.
@@ -61,8 +59,8 @@ export default function AdsPage() {
   // Session still resolving -> full-page spinner.
   if (auth.status === "loading" || (!authed && !gateOpen)) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/40 backdrop-blur-md">
-        <div className="w-72 rounded-[20px] border border-border bg-surface p-6 shadow-[var(--dm-shadow)]">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/40">
+        <div className="w-72 rounded-[10px] border border-border bg-surface p-6 shadow-[var(--dm-shadow)]">
           <LoadingState variant="card" />
         </div>
       </div>
@@ -81,14 +79,9 @@ export default function AdsPage() {
     (tiktok.error ?? meta.error ?? mekari.error ?? wa.error ?? metrics.error);
   if (anyError && firstError) {
     return (
-      <div className="mx-auto w-full min-w-0 max-w-[1240px] px-4 sm:px-6">
-        <Topbar />
-        <WorkspaceNav activeUrl="ads" />
-        <main className="mx-auto mt-6 max-w-[1220px]">
-          <ErrorState failure={firstError} onRetry={metrics.refetch} />
-        </main>
-        <Footer />
-      </div>
+      <WorkspaceBody>
+        <ErrorState failure={firstError} onRetry={metrics.refetch} />
+      </WorkspaceBody>
     );
   }
 
@@ -98,28 +91,19 @@ export default function AdsPage() {
     meta.status === "loading" || mekari.status === "loading" || wa.status === "loading";
   if (loading) {
     return (
-      <div className="mx-auto w-full min-w-0 max-w-[1240px] px-4 sm:px-6">
-        <Topbar />
-        <WorkspaceNav activeUrl="ads" />
-        <main className="mx-auto mt-6 max-w-[1220px]">
-          <LoadingState variant="card" />
-        </main>
-        <Footer />
-      </div>
+      <WorkspaceBody>
+        <LoadingState variant="card" />
+      </WorkspaceBody>
     );
   }
 
   const role = auth.data?.role ?? "viewer";
   const metricsScalar = metrics.data?.metrics;
 
+  // The shell (sidebar/topbar/gutter/footer) is owned by
+  // app/(workspaces)/layout.tsx; AdsDashboard already owns its width container.
   return (
-    <>
-      <Topbar />
-      <div className="mx-auto w-full max-w-[1220px] px-4 pt-5 sm:px-6">
-        <WorkspaceNav activeUrl="ads" />
-      </div>
-      <div className="mx-auto w-full min-w-0 max-w-[1240px] px-4 sm:px-6">
-        <AdsDashboard
+    <AdsDashboard
           tiktokRows={tiktok.data?.rows ?? []}
           metaRows={meta.data?.rows ?? []}
           mekariRows={mekari.data?.rows ?? []}
@@ -131,10 +115,7 @@ export default function AdsPage() {
             mekari: columnsFor("mekari"),
           }}
           role={role}
-          onRefresh={() => { tiktok.refetch(); meta.refetch(); mekari.refetch(); wa.refetch(); metrics.refetch(); }}
-        />
-      </div>
-      <Footer />
-    </>
+      onRefresh={() => { tiktok.refetch(); meta.refetch(); mekari.refetch(); wa.refetch(); metrics.refetch(); }}
+    />
   );
 }

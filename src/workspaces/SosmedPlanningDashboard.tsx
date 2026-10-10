@@ -374,7 +374,7 @@ export function SosmedPlanningDashboard({ rows, planRows = [], isEditor, onRefre
             </header>
 
             {/* §1 Global filter bar (Bulan/PIC/Platform/Pillar/Format — NO Status) */}
-            <div className="relative z-20 mb-6 rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)] backdrop-blur-[8px]">
+            <div className="relative z-20 mb-6 rounded-[8px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <span className="mb-2 flex items-center gap-2 text-[0.82rem] font-semibold text-muted">
                   <svg aria-hidden viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -382,7 +382,7 @@ export function SosmedPlanningDashboard({ rows, planRows = [], isEditor, onRefre
                   </svg>
                   <span>Filter Data{activeFilterCount > 0 ? ` (${activeFilterCount} aktif)` : ""}</span>
                 </span>
-                <button type="button" onClick={resetAll} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[12px] border border-border bg-surface-input px-3 py-1.5 text-[0.82rem] font-semibold text-brand transition-colors hover:border-brand/40 hover:text-brand-hover">↩ Reset</button>
+                <button type="button" onClick={resetAll} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[8px] border border-border bg-surface-input px-3 py-1.5 text-[0.82rem] font-semibold text-brand transition-colors hover:border-brand/40 hover:text-brand-hover">↩ Reset</button>
               </div>
               <div className="flex flex-wrap items-start gap-3 md:grid md:grid-cols-2 xl:grid-cols-5 md:gap-4">
                 {filterDims.map((d) => (
@@ -410,7 +410,7 @@ export function SosmedPlanningDashboard({ rows, planRows = [], isEditor, onRefre
 
             {/* §2 Light planning overview — compact (Total Planned + formats/platforms) */}
             <SectionHeader title="Planning Overview" subtitle="Total konten direncanakan dan breakdown per format / platform." />
-            <div className="rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)] backdrop-blur-[8px]">
+            <div className="rounded-[8px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]">
               <div className={compactRow}>
                 <MetricCard icon="📊" label="Total Planned" value={String(overview.planned)} />
               </div>
@@ -443,11 +443,11 @@ export function SosmedPlanningDashboard({ rows, planRows = [], isEditor, onRefre
             <Divider />
 
             {/* §3 Content Plan Storage (plan management) */}
-            <div className="rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)] backdrop-blur-[8px]">
+            <div className="rounded-[8px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]">
               <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-[1.1rem] font-extrabold text-ink">Content Plan Storage</h2>
               </div>
-              <div className="mb-4 rounded-[14px] border border-divider bg-surface/60 p-3">
+              <div className="mb-4 rounded-[8px] border border-divider bg-surface p-3">
                 <p className="mb-2 text-[0.85rem] font-bold text-muted">Rencana ({planRows.length})</p>
                 {planRows.length === 0 ? (
                   <p className="text-[0.85rem] text-muted">Belum ada rencana. Klik <span className="font-semibold text-brand">+ Content Plan</span> untuk membuat.</p>
@@ -476,17 +476,17 @@ export function SosmedPlanningDashboard({ rows, planRows = [], isEditor, onRefre
             <Divider />
 
             {/* §4 Content Calendar (default TODAY) + Content List (Kalender/Daftar) */}
-            <div className="rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)] backdrop-blur-[8px]">
+            <div className="rounded-[8px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]">
               <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-[1.1rem] font-extrabold text-ink">Content Calendar</h2>
               </div>
 
               {/* Tab bar */}
-              <div className="mb-4 inline-flex items-center gap-1 rounded-[12px] border border-border bg-surface p-1 shadow-[var(--dm-shadow-xs)]">
+              <div className="mb-4 inline-flex items-center gap-1 rounded-[8px] border border-border bg-surface p-1 shadow-[var(--dm-shadow-xs)]">
                 <button type="button" aria-pressed={tab === "calendar"} onClick={() => setTab("calendar")}
-                  className={`rounded-[10px] px-4 py-1.5 text-[0.85rem] font-semibold transition-colors ${tab === "calendar" ? "bg-brand text-white shadow-[var(--dm-shadow-xs)]" : "text-muted hover:text-ink"}`}>📅 Kalender</button>
+                  className={`rounded-[6px] px-4 py-1.5 text-[0.85rem] font-semibold transition-colors ${tab === "calendar" ? "bg-brand text-white shadow-[var(--dm-shadow-xs)]" : "text-muted hover:text-ink"}`}>📅 Kalender</button>
                 <button type="button" aria-pressed={tab === "list"} onClick={() => setTab("list")}
-                  className={`rounded-[10px] px-4 py-1.5 text-[0.85rem] font-semibold transition-colors ${tab === "list" ? "bg-brand text-white shadow-[var(--dm-shadow-xs)]" : "text-muted hover:text-ink"}`}>📋 Daftar</button>
+                  className={`rounded-[6px] px-4 py-1.5 text-[0.85rem] font-semibold transition-colors ${tab === "list" ? "bg-brand text-white shadow-[var(--dm-shadow-xs)]" : "text-muted hover:text-ink"}`}>📋 Daftar</button>
               </div>
 
               {/* Calendar view */}
@@ -495,29 +495,29 @@ export function SosmedPlanningDashboard({ rows, planRows = [], isEditor, onRefre
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <Button variant="secondary" onClick={() => setCalCursor(firstOfToday())}>Hari Ini</Button>
                     <div className="flex items-center gap-2">
-                      <button type="button" aria-label="Bulan sebelumnya" onClick={() => setCalCursor(shiftMonth(calCursor, -1))} className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-border bg-surface-input text-ink hover:border-brand/40">‹</button>
+                      <button type="button" aria-label="Bulan sebelumnya" onClick={() => setCalCursor(shiftMonth(calCursor, -1))} className="flex h-9 w-9 items-center justify-center rounded-[6px] border border-border bg-surface-input text-ink hover:border-brand/40">‹</button>
                       <span className="min-w-[9rem] text-center text-[1rem] font-extrabold text-ink">{monthTitleText(calCursor)}</span>
-                      <button type="button" aria-label="Bulan berikutnya" onClick={() => setCalCursor(shiftMonth(calCursor, 1))} className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-border bg-surface-input text-ink hover:border-brand/40">›</button>
+                      <button type="button" aria-label="Bulan berikutnya" onClick={() => setCalCursor(shiftMonth(calCursor, 1))} className="flex h-9 w-9 items-center justify-center rounded-[6px] border border-border bg-surface-input text-ink hover:border-brand/40">›</button>
                     </div>
                   </div>
                   <div className="grid grid-cols-7 gap-1.5">
                     {WEEKDAYS.map((w) => (
-                      <div key={w} className="sticky top-0 z-10 bg-surface/90 backdrop-blur-[4px] pb-1 text-center text-[0.72rem] font-bold uppercase tracking-wide text-muted">{w}</div>
+                      <div key={w} className="sticky top-0 z-10 bg-surface pb-1 text-center text-[0.72rem] font-bold uppercase tracking-wide text-muted">{w}</div>
                     ))}
                     {cells.map((c, i) => {
                       const todayNum = TODAY.getDate();
                       const isTodayCell = !c.isOutside && c.day === todayNum && calCursor.getMonth() === TODAY.getMonth() && calCursor.getFullYear() === TODAY.getFullYear();
                       return (
-                        <div key={i} className={`min-h-[92px] rounded-[12px] border p-1.5 ${c.isOutside ? "bg-transparent border-border/40 opacity-50" : "border-border bg-surface/70"}`}>
+                        <div key={i} className={`min-h-[92px] rounded-[8px] border p-1.5 ${c.isOutside ? "bg-transparent border-border/40 opacity-50" : "border-border bg-surface"}`}>
                           <div className="flex items-center justify-between">
-                            <span className={`inline-flex h-5 w-5 items-center justify-center rounded-[8px] text-[0.8rem] font-bold ${isTodayCell ? "border-[1.5px] border-accent text-accent" : "text-ink"}`}>{c.day}</span>
+                            <span className={`inline-flex h-5 w-5 items-center justify-center rounded-[6px] text-[0.8rem] font-bold ${isTodayCell ? "border-[1.5px] border-accent text-ink" : "text-ink"}`}>{c.day}</span>
                           </div>
                           <div className="mt-1 flex flex-col gap-1 overflow-hidden">
                             {c.rows.slice(0, 3).map((r) => {
                               const jx = originalIndex(r);
                               return (
                                 <button key={jx} type="button" onClick={() => detailOpen(r)}
-                                  className={`group w-full rounded-[8px] border p-1.5 text-left transition-colors group-hover:border-brand/40 ${toneClass(r)}`}>
+                                  className={`group w-full rounded-[6px] border p-1.5 text-left transition-colors group-hover:border-brand/40 ${toneClass(r)}`}>
                                   <span className="block truncate text-[0.72rem] font-semibold text-ink" title={str(r["Judul Konten"])}>{str(r["Judul Konten"]) || "—"}</span>
                                   <span className="mt-0.5 flex items-center gap-1 text-[0.65rem] text-muted">
                                     <span className="truncate">{str(r["Output"])}</span>
@@ -541,7 +541,7 @@ export function SosmedPlanningDashboard({ rows, planRows = [], isEditor, onRefre
                 /* List view (Daftar) */
                 <div>
                   <p className="mb-2 text-[0.8rem] text-muted">menampilkan {filtered.length} konten</p>
-                  <div className="divide-y divide-divider rounded-[16px] border border-border bg-surface">
+                  <div className="divide-y divide-divider rounded-[8px] border border-border bg-surface">
                     {filtered.length === 0 ? (
                       <EmptyState title="Tidak ada konten." />
                     ) : (
@@ -598,8 +598,8 @@ export function SosmedPlanningDashboard({ rows, planRows = [], isEditor, onRefre
       {/* Fullscreen explorer overlay */}
       {fullscreen ? (
         <div role="dialog" aria-modal="true" aria-label="Explorer konten — layar penuh"
-          className="fixed inset-0 z-50 flex flex-col bg-surface-strong/95 backdrop-blur-md">
-          <header className="flex items-center justify-between gap-3 border-b border-divider bg-white/80 px-5 py-3">
+          className="fixed inset-0 z-50 flex flex-col bg-surface">
+          <header className="flex items-center justify-between gap-3 border-b border-divider bg-surface px-5 py-3">
             <h2 className="text-[1.1rem] font-extrabold text-ink">Master Content Data Explorer</h2>
             <div className="flex items-center gap-2">
               <button type="button" onClick={resetExplorerFilters} className={btnReset}>Reset Filter</button>

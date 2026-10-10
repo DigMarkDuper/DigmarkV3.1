@@ -20,7 +20,7 @@ export function ChartContainer({
   children,
 }: ChartContainerProps) {
   return (
-    <div className="rounded-[18px] border border-border bg-surface p-2 backdrop-blur-[8px] saturate-[140%] shadow-[0_6px_18px_rgba(0,88,163,0.08)]">
+    <div className="rounded-[10px] border border-border bg-surface p-2 shadow-[var(--dm-shadow)]">
       {label ? <span className="mb-1 block text-[0.82rem] font-semibold text-muted">{label}</span> : null}
       {data && data.length > 0 && children ? (
         <div className={heightClass}>{children}</div>

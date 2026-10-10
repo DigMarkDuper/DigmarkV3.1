@@ -9,14 +9,12 @@
  */
 import { useApi, type ApiFailure } from "@/lib/api-client";
 import { columnsFor } from "@/server/adapter/schema";
-import { Topbar } from "@/components/layout/Topbar";
-import { Footer } from "@/components/layout/Footer";
-import { WorkspaceNav } from "@/components/layout/WorkspaceNav";
 import { ModuleHero } from "@/components/layout/ModuleHero";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/sections/EmptyState";
 import { LoadingState } from "@/components/sections/LoadingState";
 import { ErrorState } from "@/components/sections/ErrorState";
+import { WorkspaceBody } from "@/components/layout/WorkspaceBody";
 import { WebsiteDashboard } from "@/workspaces/WebsiteDashboard";
 
 interface AuthMe { ok: boolean; identity: string; role: string }
@@ -69,55 +67,33 @@ export default function WebsitePage() {
   // Data error -> ErrorState with retry.
   if (status === "error" && table.error) {
     return (
-      <div className="mx-auto w-full min-w-0 max-w-[1240px] px-4 sm:px-6">
-        <Topbar />
-        <WorkspaceNav activeUrl="website" />
-        <main className="mx-auto mt-6 max-w-[1220px]">
+      <WorkspaceBody>
           <ErrorState failure={table.error} onRetry={table.refetch} />
-        </main>
-        <Footer />
-      </div>
+      </WorkspaceBody>
     );
   }
 
   // Data loading -> skeleton body.
   if (status === "loading" || (status === "ready" && !table.data)) {
     return (
-      <div className="mx-auto w-full min-w-0 max-w-[1240px] px-4 sm:px-6">
-        <Topbar />
-        <WorkspaceNav activeUrl="website" />
-        <main className="mx-auto mt-6 max-w-[1220px]">
+      <WorkspaceBody>
           <LoadingState variant="card" />
-        </main>
-        <Footer />
-      </div>
+      </WorkspaceBody>
     );
   }
 
   // Empty -> V3 empty state, stop.
   if (status === "empty" || !table.data) {
     return (
-      <div className="mx-auto w-full min-w-0 max-w-[1240px] px-4 sm:px-6">
-        <Topbar />
-        <WorkspaceNav activeUrl="website" />
-        <main className="mx-auto max-w-[1220px]">
+      <WorkspaceBody>
           <ModuleHero icon="🌐" title="Website / SEO" desc="Fulfilment konten per pilar & audit pending." />
           <EmptyState title="Data website tidak tersedia." hint="Import laporan untuk mulai." />
-        </main>
-        <Footer />
-      </div>
+      </WorkspaceBody>
     );
   }
 
   // Ready -> presentational dashboard (includes its own layout container).
   return (
-    <>
-      <Topbar />
-      <div className="mx-auto w-full max-w-[1220px] px-4 pt-5 sm:px-6">
-        <WorkspaceNav activeUrl="website" />
-      </div>
       <WebsiteDashboard rows={table.data.rows} columns={columnsFor("website")} onRefresh={table.refetch} />
-      <Footer />
-    </>
   );
 }

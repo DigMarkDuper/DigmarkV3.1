@@ -1,5 +1,5 @@
 /**
- * Divider — section rule (UI_DESIGN_SPEC.md §C.19): 1px rgba(0,88,163,.12) top
+ * Divider — section rule (UI_DESIGN_SPEC.md §C.19): 1px `--dm-divider` top
  * border with my-8 vertical rhythm. Stateless.
  */
 export function Divider() {

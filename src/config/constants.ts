@@ -86,15 +86,15 @@ export const MODULES: ModuleDef[] = [
 // --- PIC roster (fallback; pages also derive PICs from the data) ----------
 export const PIC_LIST: string[] = ["Ejak", "Hana", "Abi", "Angel"];
 
-// --- Brand palette (IKEA-inspired blue & yellow) --------------------------
+// --- Brand palette — Sneat mirror of the --dm-* tokens in app/globals.css ---
 export const COLORS: Record<string, string> = {
-  blue: "#0058A3",       // IKEA blue  (primary / brand)
-  blue_hover: "#0A6FBF",
-  yellow: "#FFDB00",     // IKEA yellow (accent)
-  ink: "#102A43",        // text
-  muted: "#5B6B7E",      // secondary text
-  grid: "#E6EBF2",       // chart grid / track
-  success: "#22A06B",
-  warn: "#E8930C",
-  danger: "#D64550",
+  blue: "#3E7BFA",       // primary / brand
+  blue_hover: "#2E7AF6",
+  yellow: "#E8A317",     // accent
+  ink: "#22303E",        // text
+  muted: "#646E78",      // secondary text
+  grid: "#E4E6E8",       // chart grid / track
+  success: "#2DCE89",
+  warn: "#FFB547",
+  danger: "#EA4253",
 };

@@ -101,7 +101,7 @@ function AsalChart({ rows }: { rows: CountPctItem[] }) {
 /** E — insight facts on one line-friendly grid. */
 function Insight({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[12px] border border-border bg-white/70 px-3 py-2">
+    <div className="rounded-[8px] border border-border bg-surface px-3 py-2">
       <p className="text-[0.66rem] font-bold uppercase tracking-[0.04em] text-muted">{label}</p>
       <p className="mt-0.5 text-[1.05rem] font-extrabold text-ink">{value}</p>
     </div>
@@ -111,7 +111,7 @@ function Insight({ label, value }: { label: string; value: string }) {
 export function WaMonthlyReport({ report }: { report: MonthlyReport }) {
   const { period, chatMasuk, closing, pendaftar, asalChat, insights } = report;
   return (
-    <section aria-label="Laporan Bulanan WhatsApp Admin" className="rounded-[20px] border border-border bg-surface p-5 shadow-[var(--dm-shadow)]">
+    <section aria-label="Laporan Bulanan WhatsApp Admin" className="rounded-[10px] border border-border bg-surface p-5 shadow-[var(--dm-shadow)]">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-2 border-b border-divider pb-3">
         <div>
           <p className="text-[0.74rem] font-bold uppercase tracking-[0.14em] text-brand">Laporan Bulanan</p>
@@ -148,10 +148,10 @@ export function WaMonthlyReport({ report }: { report: MonthlyReport }) {
       {pendaftar.rows.length === 0 ? (
         <p className="mt-2 text-[0.82rem] text-muted">Tidak ada pendaftar pada periode ini.</p>
       ) : (
-        <div className="mt-2 overflow-x-auto rounded-[12px] border border-divider">
+        <div className="mt-2 overflow-x-auto rounded-[8px] border border-divider">
           <table className="w-full border-collapse text-[0.8rem]">
             <thead>
-              <tr className="border-b border-divider bg-white/80 text-left text-[0.66rem] uppercase tracking-[0.04em] text-muted">
+              <tr className="border-b border-divider bg-surface text-left text-[0.66rem] uppercase tracking-[0.04em] text-muted">
                 <th className="px-3 py-2 font-bold">Nama</th>
                 <th className="px-3 py-2 font-bold">WhatsApp</th>
                 <th className="px-3 py-2 font-bold">Mengetahui dari</th>

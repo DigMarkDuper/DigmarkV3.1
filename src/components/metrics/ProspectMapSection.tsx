@@ -67,13 +67,13 @@ export function ProspectMapSection({ rows }: ProspectMapSectionProps) {
       </div>
 
       {/* Map */}
-      <div className="rounded-[20px] border border-border bg-surface p-4 shadow-[var(--dm-shadow)] backdrop-blur-[10px] saturate-[140%]">
+      <div className="rounded-[10px] border border-border bg-surface p-4 shadow-[var(--dm-shadow)]">
         <IndonesiaMap provinces={agg.provinces} provinceRegions={agg.provinceRegions} />
       </div>
 
       {/* Top 5 region list + legend */}
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-[20px] border border-border bg-surface p-4 shadow-[var(--dm-shadow)] backdrop-blur-[10px] saturate-[140%]">
+        <div className="rounded-[10px] border border-border bg-surface p-4 shadow-[var(--dm-shadow)]">
           <h3 className="text-[0.94rem] font-bold text-ink">TOP WILAYAH</h3>
           <ol className="mt-3 flex flex-col gap-1.5">
             {agg.top.map((t, i) => (
@@ -102,7 +102,7 @@ export function ProspectMapSection({ rows }: ProspectMapSectionProps) {
         </div>
 
         {/* Heat legend */}
-        <div className="rounded-[20px] border border-border bg-surface p-4 shadow-[var(--dm-shadow)] backdrop-blur-[10px] saturate-[140%]">
+        <div className="rounded-[10px] border border-border bg-surface p-4 shadow-[var(--dm-shadow)]">
           <h3 className="text-[0.94rem] font-bold text-ink">Tingkat Kepadatan Prospek</h3>
           <div className="mt-3 h-3 w-full rounded-full" style={{ background: `linear-gradient(to right, ${BRAND_RAMP.join(", ")})` }} />
           <div className="mt-1 flex justify-between text-[0.72rem] text-muted">

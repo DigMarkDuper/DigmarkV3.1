@@ -70,7 +70,7 @@ function MultiSelect({
   return (
     <span className="flex flex-col gap-1">
       <span className="mb-1 block text-[0.82rem] font-semibold text-muted">{label}</span>
-      <div className="max-h-[160px] overflow-y-auto rounded-[12px] border border-border bg-surface-input p-3">
+      <div className="max-h-[160px] overflow-y-auto rounded-[8px] border border-border bg-surface-input p-3">
         {options.length === 0 ? (
           <span className="text-[0.8rem] text-muted/60">Tidak ada opsi.</span>
         ) : (
@@ -240,15 +240,15 @@ export function CrmDashboard({ rows, columns, onRefresh }: CrmDashboardProps) {
         <SectionHeader title="Sync & Import" subtitle="Tarik prospects dan import data baru." />
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           {/* Sync (left) */}
-          <div className="rounded-[20px] border border-border bg-surface p-6 backdrop-blur-[10px] saturate-[140%] shadow-[var(--dm-shadow)]">
+          <div className="rounded-[10px] border border-border bg-surface p-6 shadow-[var(--dm-shadow)]">
             <p className="mb-1 text-[0.95rem] font-semibold text-ink">Sinkronisasi WA Admin → CRM</p>
             {syncErr ? (
-              <p role="alert" className="mt-2 rounded-[12px] border border-danger/30 bg-danger/10 px-3 py-2 text-[0.85rem] font-semibold text-danger">
+              <p role="alert" className="mt-2 rounded-[8px] border border-danger/30 bg-danger/10 px-3 py-2 text-[0.85rem] font-semibold text-danger">
                 ⚠️ {syncErr}
               </p>
             ) : null}
             {syncOk ? (
-              <p role="status" className="mt-2 rounded-[12px] border border-success/30 bg-success/10 px-3 py-2 text-[0.85rem] font-semibold text-success">
+              <p role="status" className="mt-2 rounded-[8px] border border-success/30 bg-success/10 px-3 py-2 text-[0.85rem] font-semibold text-success">
                 ✅ {syncOk}
               </p>
             ) : null}
@@ -262,7 +262,7 @@ export function CrmDashboard({ rows, columns, onRefresh }: CrmDashboardProps) {
           {/* Import (right) */}
           <form
             onSubmit={runImport}
-            className="rounded-[20px] border border-border bg-surface p-6 backdrop-blur-[10px] saturate-[140%] shadow-[var(--dm-shadow)]"
+            className="rounded-[10px] border border-border bg-surface p-6 shadow-[var(--dm-shadow)]"
           >
             <p className="mb-1 text-[0.95rem] font-semibold text-ink">Import data baru</p>
             <p className="mb-3 text-[0.82rem] text-muted">
@@ -273,15 +273,15 @@ export function CrmDashboard({ rows, columns, onRefresh }: CrmDashboardProps) {
               type="file"
               accept=".xlsx,.csv"
               onChange={onFile}
-              className="block w-full text-[0.85rem] text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-brand file:px-3 file:py-2 file:text-white file:font-semibold"
+              className="block w-full text-[0.85rem] text-muted file:mr-3 file:rounded-[6px] file:border-0 file:bg-brand file:px-3 file:py-2 file:text-white file:font-semibold"
             />
             {importErr ? (
-              <p role="alert" className="mt-2 rounded-[12px] border border-danger/30 bg-danger/10 px-3 py-2 text-[0.85rem] font-semibold text-danger">
+              <p role="alert" className="mt-2 rounded-[8px] border border-danger/30 bg-danger/10 px-3 py-2 text-[0.85rem] font-semibold text-danger">
                 ⚠️ {importErr}
               </p>
             ) : null}
             {importMsg ? (
-              <p role="status" className="mt-2 rounded-[12px] border border-success/30 bg-success/10 px-3 py-2 text-[0.85rem] font-semibold text-success">
+              <p role="status" className="mt-2 rounded-[8px] border border-success/30 bg-success/10 px-3 py-2 text-[0.85rem] font-semibold text-success">
                 ✅ {importMsg}
               </p>
             ) : null}

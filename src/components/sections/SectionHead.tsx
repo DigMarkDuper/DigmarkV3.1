@@ -13,7 +13,7 @@ export interface SectionHeadProps {
 export function SectionHead({ title, sub, id }: SectionHeadProps) {
   return (
     <div id={id}>
-      <h2 className="text-[1.9rem] font-extrabold tracking-tight text-ink">{title}</h2>
+      <h2 className="text-[1.5rem] font-extrabold tracking-tight text-ink">{title}</h2>
       {sub ? <p className="mt-2 text-[1rem] text-muted">{sub}</p> : null}
     </div>
   );

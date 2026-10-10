@@ -203,7 +203,7 @@ export function DmDashboard({ rows, columns, onRefresh }: DmDashboardProps) {
         <SectionHeader title="Input Prospek Baru" subtitle="Registrasi prospek baru dari DM." />
         <form
           onSubmit={handleSubmit}
-          className="rounded-[20px] border border-border bg-surface p-6 backdrop-blur-[10px] saturate-[140%] shadow-[var(--dm-shadow)]"
+          className="rounded-[10px] border border-border bg-surface p-6 shadow-[var(--dm-shadow)]"
         >
           <div className="grid gap-5 md:grid-cols-2">
             <Select
@@ -250,17 +250,17 @@ export function DmDashboard({ rows, columns, onRefresh }: DmDashboardProps) {
           </div>
 
           {warning ? (
-            <div role="alert" className="mt-4 rounded-[12px] border border-warning/30 bg-warning/10 px-4 py-3 text-[0.9rem] font-semibold text-warning">
+            <div role="alert" className="mt-4 rounded-[8px] border border-warning/30 bg-warning/10 px-4 py-3 text-[0.9rem] font-semibold text-warning">
               {warning}
             </div>
           ) : null}
           {error ? (
-            <div role="alert" className="mt-4 rounded-[12px] border border-danger/30 bg-danger/10 px-4 py-3 text-[0.9rem] font-semibold text-danger">
+            <div role="alert" className="mt-4 rounded-[8px] border border-danger/30 bg-danger/10 px-4 py-3 text-[0.9rem] font-semibold text-danger">
               ⚠️ {error}
             </div>
           ) : null}
           {success ? (
-            <div role="status" className="mt-4 rounded-[12px] border border-success/30 bg-success/10 px-4 py-3 text-[0.9rem] font-semibold text-success">
+            <div role="status" className="mt-4 rounded-[8px] border border-success/30 bg-success/10 px-4 py-3 text-[0.9rem] font-semibold text-success">
               {success}
             </div>
           ) : null}

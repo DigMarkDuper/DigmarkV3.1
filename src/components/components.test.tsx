@@ -35,7 +35,7 @@ describe("component anatomy (server-rendered, no browser)", () => {
   it("SectionHead renders the big homepage heading", () => {
     const html = renderToStaticMarkup(<SectionHead title="Quick Insight" />);
     expect(html).toContain("Quick Insight");
-    expect(html).toContain("text-[1.9rem]");
+    expect(html).toContain("text-[1.5rem]");
   });
 
   it("QuickInsightStat shows label, value and loading skeleton", () => {

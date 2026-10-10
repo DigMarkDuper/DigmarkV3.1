@@ -86,7 +86,7 @@ function NoticeBanner({ notice }: { notice: Notice | null }) {
         ? "border-warning/30 bg-warning/10 text-warning"
         : "border-danger/30 bg-danger/10 text-danger";
   return (
-    <div role="status" className={`mt-3 rounded-[12px] border ${cls} px-4 py-3 text-[0.9rem] font-semibold`}>
+    <div role="status" className={`mt-3 rounded-[8px] border ${cls} px-4 py-3 text-[0.9rem] font-semibold`}>
       {notice.text}
     </div>
   );
@@ -109,7 +109,7 @@ function TabBar({ active, onSelect }: { active: string; onSelect: (id: string) =
           aria-selected={t.id === active}
           onClick={() => onSelect(t.id)}
           className={
-            "rounded-full px-4 py-1.5 text-[0.86rem] font-semibold transition-colors duration-150 " +
+ "rounded-full px-4 py-1.5 text-[0.86rem] font-semibold transition-colors duration-150 " +
             (t.id === active
               ? "bg-surface-strong text-ink font-bold ring-2 ring-brand/40"
               : "bg-surface text-muted hover:text-brand-hover")
@@ -164,7 +164,7 @@ function ClearControl({
           🗑️ Kosongkan tab {title}
         </Button>
       ) : (
-        <div className="rounded-[16px] border border-danger/40 bg-danger/8 p-5 backdrop-blur-[8px]">
+        <div className="rounded-[8px] border border-danger/40 bg-danger/8 p-5">
           <p className="text-[0.9rem] font-semibold leading-[1.5] text-ink">
             ⚠️ Menghapus seluruh baris dari <span className="font-bold text-danger">{tabTitle}</span>.
             Tindakan ini tidak dapat dibatalkan.
@@ -226,7 +226,7 @@ function PlatformImport({
   };
 
   return (
-    <div className="rounded-[16px] border border-border bg-surface p-5 backdrop-blur-[8px] shadow-[var(--dm-shadow)]">
+    <div className="rounded-[8px] border border-border bg-surface p-5 shadow-[var(--dm-shadow)]">
       <p className="text-[0.88rem] font-semibold text-muted">Upload file (.csv / .xlsx)</p>
       <input
         type="file"
@@ -340,7 +340,7 @@ function MekariSection({
       )}
       <Divider />
       <SectionHeader title="Import laporan Mekari" subtitle="Upload CSV / XLSX untuk laporan." />
-      <div className="rounded-[16px] border border-border bg-surface p-5 backdrop-blur-[8px] shadow-[var(--dm-shadow)]">
+      <div className="rounded-[8px] border border-border bg-surface p-5 shadow-[var(--dm-shadow)]">
         <p className="text-[0.88rem] font-semibold text-muted">Upload file</p>
         <input
           type="file"

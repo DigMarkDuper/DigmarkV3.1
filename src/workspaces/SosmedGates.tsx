@@ -25,8 +25,8 @@ import type { ApiFailure } from "@/lib/api-client";
 /** 401/403 sign-in prompt (parity with the pre-split shell AuthGate). */
 export function AuthGate() {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/60 backdrop-blur-md px-4">
-      <div className="w-full max-w-md rounded-[20px] border border-border bg-surface p-8 shadow-[var(--dm-shadow)]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface px-4">
+      <div className="w-full max-w-md rounded-[10px] border border-border bg-surface p-8 shadow-[var(--dm-shadow)]">
         <div className="text-[1.35rem] font-extrabold text-ink">Sign in to continue</div>
         <p className="mt-2 text-[0.95rem] leading-[1.5] text-muted">
           Signed-in session required to view the Social Media workspace.
@@ -42,8 +42,8 @@ export function AuthGate() {
 /** Full-page spinner shown while the session is still resolving. */
 export function SessionSpinner() {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/40 backdrop-blur-md">
-      <div className="w-72 rounded-[20px] border border-border bg-surface p-6 shadow-[var(--dm-shadow)]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/40">
+      <div className="w-72 rounded-[10px] border border-border bg-surface p-6 shadow-[var(--dm-shadow)]">
         <LoadingState variant="card" />
       </div>
     </div>

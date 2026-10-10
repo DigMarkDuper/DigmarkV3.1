@@ -150,12 +150,12 @@ export function SosmedReportingDashboard({ rows, isEditor, onRefresh }: SosmedRe
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <button type="button" onClick={() => onRefresh?.()}
-                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[12px] border border-border bg-surface-input px-3 py-1.5 text-[0.82rem] font-semibold text-brand transition-colors hover:border-brand/40 hover:text-brand-hover">🔄 Refresh Data</button>
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[8px] border border-border bg-surface-input px-3 py-1.5 text-[0.82rem] font-semibold text-brand transition-colors hover:border-brand/40 hover:text-brand-hover">🔄 Refresh Data</button>
               </div>
             </header>
 
             {/* §1 Global filter bar (Periode/PIC/Platform/Status/Format — NO Pillar) */}
-            <div className="relative z-20 mb-6 rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)] backdrop-blur-[8px]">
+            <div className="relative z-20 mb-6 rounded-[8px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <span className="mb-2 flex items-center gap-2 text-[0.82rem] font-semibold text-muted">
                   <svg aria-hidden viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -163,7 +163,7 @@ export function SosmedReportingDashboard({ rows, isEditor, onRefresh }: SosmedRe
                   </svg>
                   <span>Filter Data{activeFilterCount > 0 ? ` (${activeFilterCount} aktif)` : ""}</span>
                 </span>
-                <button type="button" onClick={resetAll} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[12px] border border-border bg-surface-input px-3 py-1.5 text-[0.82rem] font-semibold text-brand transition-colors hover:border-brand/40 hover:text-brand-hover">↩ Reset</button>
+                <button type="button" onClick={resetAll} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[8px] border border-border bg-surface-input px-3 py-1.5 text-[0.82rem] font-semibold text-brand transition-colors hover:border-brand/40 hover:text-brand-hover">↩ Reset</button>
               </div>
               <div className="flex flex-wrap items-start gap-3 md:grid md:grid-cols-2 xl:grid-cols-5 md:gap-4">
                 {filterDims.map((d) => (
@@ -211,7 +211,7 @@ export function SosmedReportingDashboard({ rows, isEditor, onRefresh }: SosmedRe
 
             {/* §3 Deadline Monitoring */}
             <SectionHeader title="Deadline Monitoring" subtitle="Prioritas utama: Overdue, jatuh tempo hari ini/minggu ini, dan selesai." />
-            <div className="rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow)] backdrop-blur-[8px]">
+            <div className="rounded-[8px] border border-border bg-surface p-4 shadow-[var(--dm-shadow)]">
               <div className="grid gap-3 md:grid-cols-4">
                 {countChip("🚨 Overdue", deadlines.overdueCount, "border-danger/30 bg-danger/10")}
                 {countChip("📅 Due Today", deadlines.dueTodayCount, "border-warning/30 bg-warning/10")}
@@ -221,7 +221,7 @@ export function SosmedReportingDashboard({ rows, isEditor, onRefresh }: SosmedRe
               {deadlines.overdue.length > 0 ? (
                 <div className="mt-2">
                   <p className="text-[0.82rem] font-semibold text-muted">Overdue-content ({deadlines.overdueCount})</p>
-                  <div className="rounded-[12px] border border-danger/30 bg-surface/70">
+                  <div className="rounded-[8px] border border-danger/30 bg-surface">
                     {deadlines.overdue.map((r) => <ActionItemRow key={originalIndex(r)} item={{ title: str(r["Judul Konten"]), pic: str(r["PIC"]), deadline: str(r["Tanggal Deadline"]), platform: "", status: str(r["PROSES"]) }} />)}
                   </div>
                 </div>
@@ -236,7 +236,7 @@ export function SosmedReportingDashboard({ rows, isEditor, onRefresh }: SosmedRe
               <ChartContainer heightClass="h-auto" data={funnel} label="Funnel produksi (berdasarkan PROSES)">
                 <FunnelBars stages={funnel} />
               </ChartContainer>
-              <div className="flex flex-col rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)] backdrop-blur-[8px]">
+              <div className="flex flex-col rounded-[8px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]">
                 <p className="mb-3 text-[0.85rem] font-semibold text-muted">Berapa konten di setiap fase</p>
                 <div className="grid flex-1 content-start gap-2 sm:grid-cols-2 auto-rows-fr">
                   {breakdown.map((s) => {
@@ -244,9 +244,9 @@ export function SosmedReportingDashboard({ rows, isEditor, onRefresh }: SosmedRe
                       : s.key === "done" ? "border-success/30 bg-success/10"
                         : s.key === "revision" ? "border-danger/30 bg-danger/10"
                           : s.key === "inProduction" ? "border-warning/30 bg-warning/10"
-                            : "border-border bg-surface/60";
+                            : "border-border bg-surface";
                     return (
-                      <div key={s.key} className={`flex items-center justify-between rounded-[12px] border ${tone} p-2.5`}>
+                      <div key={s.key} className={`flex items-center justify-between rounded-[8px] border ${tone} p-2.5`}>
                         <span className="text-[0.82rem] font-semibold text-ink">{s.label}</span>
                         <span className="text-[0.95rem] font-extrabold text-ink">{s.count}</span>
                       </div>
@@ -261,19 +261,19 @@ export function SosmedReportingDashboard({ rows, isEditor, onRefresh }: SosmedRe
             {/* §5 Action Required (standalone quad grid) */}
             <SectionHeader title="Action Required" subtitle="Tugas operasional: overdue, menunggu review, dalam revisi, dan selesai-belum diposting." />
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="rounded-[16px] border border-danger/30 bg-surface/70">
+              <div className="rounded-[8px] border border-danger/30 bg-surface">
                 <p className="px-3 py-2 text-[0.88rem] font-bold text-danger">🚨 Overdue ({actions.overdue.length})</p>
                 {actions.overdue.length ? actions.overdue.map((a) => <ActionItemRow key={`${a.title}-${a.pic}-${a.deadline}`} item={a} />) : <p className="px-3 py-2 text-[0.85rem] text-muted">Tidak ada.</p>}
               </div>
-              <div className="rounded-[16px] border border-warning/30 bg-surface/70">
+              <div className="rounded-[8px] border border-warning/30 bg-surface">
                 <p className="px-3 py-2 text-[0.88rem] font-bold text-warning">👀 Menunggu Review ({actions.reviewNeeded.length})</p>
                 {actions.reviewNeeded.length ? actions.reviewNeeded.map((a) => <ActionItemRow key={`${a.title}-${a.pic}-${a.deadline}`} item={a} />) : <p className="px-3 py-2 text-[0.85rem] text-muted">Tidak ada.</p>}
               </div>
-              <div className="rounded-[16px] border border-brand/20 bg-surface/70">
+              <div className="rounded-[8px] border border-brand/20 bg-surface">
                 <p className="px-3 py-2 text-[0.88rem] font-bold text-brand-hover">🔁 Dalam Revisi ({actions.inRevision.length})</p>
                 {actions.inRevision.length ? actions.inRevision.map((a) => <ActionItemRow key={`${a.title}-${a.pic}-${a.deadline}`} item={a} />) : <p className="px-3 py-2 text-[0.85rem] text-muted">Tidak ada (status tidak tersedia di data).</p>}
               </div>
-              <div className="rounded-[16px] border border-brand/20 bg-surface/70">
+              <div className="rounded-[8px] border border-brand/20 bg-surface">
                 <p className="px-3 py-2 text-[0.88rem] font-bold text-brand-hover">📤 Selesai, belum dipublikasi ({actions.finishedNotPublished.length})</p>
                 {actions.finishedNotPublished.length ? actions.finishedNotPublished.map((a) => <ActionItemRow key={`${a.title}-${a.pic}-${a.deadline}`} item={a} />) : <p className="px-3 py-2 text-[0.85rem] text-muted">Tidak ada.</p>}
               </div>
@@ -337,7 +337,7 @@ export function SosmedReportingDashboard({ rows, isEditor, onRefresh }: SosmedRe
             {trend.length ? (
               <InteractiveOutputTrend points={trend} />
             ) : (
-              <div className="relative rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)] backdrop-blur-[8px]">
+              <div className="relative rounded-[8px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]">
                 <EmptyState title="Belum ada data deadline untuk tren." />
               </div>
             )}

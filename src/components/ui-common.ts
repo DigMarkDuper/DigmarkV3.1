@@ -8,88 +8,92 @@
  * numbers in components.
  */
 
-// --- Palette (spec B.2) [PRESERVED] ---
+// --- Palette (spec B.2) — Sneat mirror of the --dm-* tokens in app/globals.css ---
 export const PALETTE = {
-  brand: "#0058A3",
-  brandHover: "#0A6FBF",
-  accent: "#FFDB00",
-  accentDeep: "#f4c400",
-  ink: "#102A43",
-  muted: "#5B6B7E",
-  grid: "#E6EBF2",
-  success: "#22A06B",
-  warning: "#E8930C",
-  danger: "#D64550",
-  pink: "#D95FA8",
-  surface: "rgba(255,255,255,0.72)",
-  surfaceStrong: "rgba(255,255,255,0.85)",
-  border: "rgba(255,255,255,0.9)",
-  divider: "rgba(0,88,163,0.12)",
+  brand: "#3E7BFA",
+  brandHover: "#2E7AF6",
+  accent: "#E8A317",
+  // Deeper amber: used only as a gradient midpoint + chart-series graphic
+  // (never as text), so it is tuned for >=3:1 against white, not 4.5:1.
+  accentDeep: "#B87A0A",
+  ink: "#22303E",
+  muted: "#646E78",
+  grid: "#E4E6E8",
+  success: "#2DCE89",
+  warning: "#FFB547",
+  danger: "#EA4253",
+  pink: "#C2559B",
+  surface: "#FFFFFF",
+  surfaceStrong: "#FFFFFF",
+  border: "#E2E8F0",
+  divider: "#EEF2F6",
   inkOnBrand: "#FFFFFF",
   // --- Categorical multi-hue family (UI redesign §3.1, additive) ---
-  // Distinct pastel hues (AA-on-ink) for categorical charts: cycle per category,
-  // never a sequential single-hue ramp. Validated on wa-admin Tag Asal treemap.
-  catBlue: "#BFD9F0",
-  catGreen: "#B5DFC7",
-  catPurple: "#cfc6f0",
-  catOrange: "#F2CDA2",
-  catTeal: "#A9D9E2",
-  catPink: "#EFC7DC",
-  catSlate: "#C6D3DF",
-  catSand: "#E0C2A8",
-  catLavender: "#D4BFD9",
-  catMint: "#B8D8C1",
+  // Distinct mid-tone hues for categorical charts: cycle per category, never a
+  // sequential single-hue ramp. Tuned on opaque white so each fill is separable
+  // from the card (>=2:1) while `PALETTE.ink` labels drawn on top stay AA (>=4.5:1).
+  // Validated on wa-admin Tag Asal treemap.
+  catBlue: "#679EDB",
+  catGreen: "#59AA81",
+  catPurple: "#AE8ADE",
+  catOrange: "#D08C38",
+  catTeal: "#67A4AD",
+  catPink: "#DC7CA8",
+  catSlate: "#8D9CAD",
+  catSand: "#B69477",
+  catLavender: "#C97FD6",
+  catMint: "#44AE66",
 } as const;
 
 // --- Brand blue heat ramp (single source for map fill + legend gradient) ---
 // Lightest (#catBlue) -> deepest (PALETTE.brand). Both IndonesiaMap's heat fill
 // and ProspectMapSection's legend gradient derive from this so they never drift.
 export const BRAND_RAMP = [
-  "#BFD9F0",
-  "#7DB4E2",
-  "#4F86C4",
-  "#2F66A8",
-  "#124F8F",
-  "#0058A3", // PALETTE.brand
+  "#DCE9F8",
+  "#A9C7EE",
+  "#6FA0DE",
+  "#3E7BFA", // PALETTE.brand
+  "#2E5FC4",
+  "#1D3F86",
 ] as const;
 
-// --- Radius scale (spec B.4) ---
+// --- Radius scale (spec B.4) — mirrors --dm-radius-* in app/globals.css ---
 export const RADII = {
-  sm: "10px",
-  sm6: "12px",
-  md: "14px",
-  md16: "16px",
-  md18: "18px",
-  lg: "20px",
-  panel: "22px",
+  sm: "4px",
+  sm6: "6px",
+  md: "8px",
+  md16: "8px",
+  md18: "10px",
+  lg: "10px",
+  panel: "12px",
   pill: "9999px",
 } as const;
 
-// --- Shadow scale (spec B.4) ---
+// --- Shadow scale (spec B.4) — neutral gray lift, mirrors --dm-shadow-* ---
 export const SHADOWS = {
-  xs: "0 3px 10px rgba(0,88,163,0.08)",
-  xsB6: "0 4px 12px rgba(0,88,163,0.10)",
-  base: "0 8px 22px rgba(0,88,163,0.10)",
-  hover: "0 18px 38px rgba(0,88,163,0.20)",
-  lift: "0 20px 45px rgba(0,88,163,0.18)",
-  cta: "0 6px 18px rgba(0,88,163,0.25)",
-  ctaHover: "0 10px 24px rgba(0,88,163,0.32)",
-  panel: "0 18px 40px rgba(0,88,163,0.16)",
-  mono: "0 8px 20px rgba(0,88,163,0.30)",
-  arrow: "0 2px 6px rgba(255,219,0,0.35)",
-  ball: "0 10px 24px rgba(240,200,0,0.40)",
+  xs: "0 1px 2px rgba(34,48,62,0.06)",
+  xsB6: "0 1px 2px rgba(34,48,62,0.06)",
+  base: "0 1px 3px rgba(34,48,62,0.10)",
+  hover: "0 3px 6px rgba(34,48,62,0.10)",
+  lift: "0 4px 8px rgba(34,48,62,0.10)",
+  cta: "0 1px 2px rgba(62,123,250,0.24)",
+  ctaHover: "0 2px 4px rgba(62,123,250,0.28)",
+  panel: "0 3px 8px rgba(34,48,62,0.08)",
+  mono: "0 1px 2px rgba(34,48,62,0.12)",
+  arrow: "0 1px 2px rgba(120,83,0,0.18)",
+  ball: "0 1px 3px rgba(120,83,0,0.22)",
 } as const;
 
-// --- Typography scale (spec B.1), documented for reference ---
+// --- Typography scale (spec B.1), documented for reference (dense Sneat sizing) ---
 export const TYPE_SCALE = {
   displayH1: "clamp(2.1rem,4.6vw,3.4rem)",
   displayH1Lh: "1.06",
   h1: "clamp(1.7rem,3.4vw,2.5rem)",
   h1Lh: "1.1",
-  h2: "1.9rem",
-  h3: "1.18rem",
-  h4: "1.08rem",
-  body: "15px",
+  h2: "1.5rem",
+  h3: "1.125rem",
+  h4: "0.9375rem",
+  body: "14px",
 } as const;
 
 // --- Responsive breakpoints (spec B.9) ---

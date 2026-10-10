@@ -11,17 +11,17 @@ type Variant = "primary" | "secondary" | "ghost" | "destructive";
 
 const VARIANTS: Record<Variant, string> = {
   primary:
-    "bg-gradient-to-br from-brand to-brand-hover text-white rounded-[14px] px-6 py-3 " +
+    "bg-brand text-white rounded-[8px] px-6 py-3 " +
     "font-bold text-[0.92rem] shadow-[var(--dm-shadow-cta)] " +
     "hover:-translate-y-[1px] hover:shadow-[var(--dm-shadow-cta-hover)] motion-reduce:hover:translate-y-0",
   secondary:
-    "bg-surface border border-border rounded-[12px] px-4 py-2 font-semibold text-ink " +
+    "bg-surface border border-border rounded-[8px] px-4 py-2 font-semibold text-ink " +
     "shadow-[var(--dm-shadow-xs)] hover:-translate-y-[1px] motion-reduce:hover:translate-y-0",
   ghost:
-    "bg-transparent border border-brand/30 text-brand-hover rounded-[12px] px-4 py-2 " +
+    "bg-transparent border border-brand/30 text-brand-hover rounded-[8px] px-4 py-2 " +
     "font-semibold hover:bg-brand/5 hover:border-brand hover:text-brand",
   destructive:
-    "bg-danger text-white rounded-[12px] px-4 py-2 font-semibold " +
+    "bg-danger text-white rounded-[8px] px-4 py-2 font-semibold " +
     "hover:shadow-[var(--dm-shadow-xs)]",
 };
 

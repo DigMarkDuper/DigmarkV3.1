@@ -39,7 +39,7 @@ export function ErrorState({ failure, onRetry }: ErrorStateProps) {
   return (
     <div
       role="alert"
-      className="rounded-[16px] border border-danger/30 bg-white/60 p-5"
+      className="rounded-[8px] border border-danger/30 bg-surface p-5"
     >
       <div className="flex items-center gap-3">
         <span aria-hidden className="text-danger">⚠</span>

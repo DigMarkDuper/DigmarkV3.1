@@ -137,7 +137,7 @@ function MonthFilter({
   onToggle: (month: string, enabled: boolean) => void;
 }) {
   return (
-    <div className="rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)] backdrop-blur-[8px]">
+    <div className="rounded-[8px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]">
       <div className="mb-2 flex items-center gap-2 text-[0.82rem] font-semibold text-muted">
         <svg aria-hidden viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <path d="M6 3v2M14 3v2M4 8h12M5 5h10a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" />
@@ -154,17 +154,17 @@ function MonthFilter({
               aria-pressed={active}
               onClick={() => onToggle(m, !active)}
               className={
-                "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[0.8rem] font-semibold transition-all duration-150 " +
+ "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[0.8rem] font-semibold transition-all duration-150 " +
                 (active
                   ? "border-brand/30 bg-surface-strong text-ink shadow-[var(--dm-shadow-xs)]"
-                  : "border-border bg-surface/60 text-muted hover:border-brand/30 hover:text-brand-hover")
+                  : "border-border bg-surface text-muted hover:border-brand/30 hover:text-brand-hover")
               }
             >
               <span
                 aria-hidden
                 className={
-                  "flex h-4 w-4 items-center justify-center rounded-[5px] border transition-colors " +
-                  (active ? "border-brand bg-brand text-ink-on-brand" : "border-border bg-white/60 text-transparent")
+ "flex h-4 w-4 items-center justify-center rounded-[4px] border transition-colors " +
+                  (active ? "border-brand bg-brand text-ink-on-brand" : "border-border bg-surface text-transparent")
                 }
               >
                 <svg viewBox="0 0 12 12" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -266,10 +266,10 @@ export function WebsiteDashboard({ rows, columns, onRefresh }: WebsiteDashboardP
               aria-selected={tab === i}
               onClick={() => setTab(i)}
               className={
-                "rounded-full border px-4 py-1.5 text-[0.9rem] font-semibold transition-all duration-150 " +
+ "rounded-full border px-4 py-1.5 text-[0.9rem] font-semibold transition-all duration-150 " +
                 (tab === i
                   ? "border-brand/30 bg-surface-strong text-ink shadow-[var(--dm-shadow-xs)]"
-                  : "border-border bg-surface/60 text-muted hover:border-brand/30 hover:text-brand-hover")
+                  : "border-border bg-surface text-muted hover:border-brand/30 hover:text-brand-hover")
               }
             >
               {label}
@@ -279,7 +279,7 @@ export function WebsiteDashboard({ rows, columns, onRefresh }: WebsiteDashboardP
 
         {tab === 0 ? (
           allDone ? (
-            <div role="status" className="rounded-[16px] border border-success/40 bg-success/10 p-5">
+            <div role="status" className="rounded-[8px] border border-success/40 bg-success/10 p-5">
               <p className="font-semibold text-success">Semua tugas clear! 🎉</p>
             </div>
           ) : pendingGroups.length ? (
@@ -287,12 +287,12 @@ export function WebsiteDashboard({ rows, columns, onRefresh }: WebsiteDashboardP
               {pendingGroups.map((g) => (
                 <details
                   key={g.pillar}
-                  className="group rounded-[14px] border border-border bg-surface backdrop-blur-[8px] shadow-[var(--dm-shadow-xs)] transition-all duration-200 open:border-brand/30 open:bg-surface-strong"
+                  className="group rounded-[8px] border border-border bg-surface shadow-[var(--dm-shadow-xs)] transition-all duration-200 open:border-brand/30 open:bg-surface-strong"
                 >
-                  <summary className="flex cursor-pointer select-none items-center gap-3 rounded-[14px] px-4 py-3.5 transition-colors hover:bg-brand/[0.03]">
+                  <summary className="flex cursor-pointer select-none items-center gap-3 rounded-[8px] px-4 py-3.5 transition-colors hover:bg-brand/[0.03]">
                     <span
                       aria-hidden
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-br from-brand/10 to-brand/16 text-[1rem]"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[6px] bg-blue-glow text-[1rem]"
                     >
                       {pillarIcon(g.pillar)}
                     </span>

@@ -2,11 +2,11 @@
  * DataTable — normalized-rows table (UI_DESIGN_SPEC.md §C.10), consumes the
  * `rows` from GET /api/tables/[key].
  *
- * Sticky header, zebra rows, `overflow-x-auto` on the wrapper ONLY (so tables
- * h-scroll inside their own card — never the page). Columns derive from the
- * union of keys in the first row unless an explicit schema order is provided;
- * numeric columns are right-aligned. Loading/empty/error states are handled
- * in place (skeleton / EmptyState row / ErrorState).
+ * Sticky opaque header, 1px `border-divider` row rules, `overflow-x-auto` on
+  * the wrapper ONLY (so tables h-scroll inside their own card — never the page).
+  * Columns derive from the union of keys in the first row unless an explicit
+  * schema order is provided; numeric columns are right-aligned. Loading/empty/
+  * error states are handled in place (skeleton / EmptyState row / ErrorState).
  */
 import { EmptyState } from "@/components/sections/EmptyState";
 import { ErrorState } from "@/components/sections/ErrorState";
@@ -72,7 +72,7 @@ export function DataTable({
   // Error state replaces the whole table, same wrapper sizing.
   if (error) {
     return (
-      <div className="overflow-x-auto rounded-[16px] border border-border bg-surface p-2 backdrop-blur-[8px]">
+      <div className="overflow-x-auto rounded-[8px] border border-border bg-surface p-2">
         <ErrorState failure={error} onRetry={onRetry} />
       </div>
     );
@@ -87,10 +87,10 @@ export function DataTable({
 
   return (
     <div
-      className="overflow-x-auto rounded-[16px] border border-border bg-surface backdrop-blur-[8px] shadow-[var(--dm-shadow)]"
+      className="overflow-x-auto rounded-[8px] border border-border bg-surface shadow-[var(--dm-shadow)]"
       style={accentStyle}
     >
-      <div className={`px-8 ${maxHeightClass} overflow-y-auto`}>
+      <div className={`px-5 ${maxHeightClass} overflow-y-auto`}>
         {loading ? (
           <LoadingState variant="table" />
         ) : isEmpty ? (
@@ -106,12 +106,12 @@ export function DataTable({
         ) : (
           <table className="w-full border-collapse text-left">
             <thead
-              className="sticky top-0 z-10 border-b border-divider bg-white/90 backdrop-blur-[8px]"
+              className="sticky top-0 z-10 border-b border-divider bg-surface"
               style={accentColor ? { borderBottomColor: accentColor } : undefined}
             >
               <tr>
                 {cols.map((c) => (
-                  <th key={c} className="px-3 py-2 text-left text-[0.8rem] font-semibold uppercase tracking-[0.02em] text-muted">
+                  <th key={c} className="px-5 py-2.5 text-left text-[0.75rem] font-semibold uppercase tracking-[0.02em] text-muted">
                     {cellText(c)}
                   </th>
                 ))}
@@ -119,14 +119,14 @@ export function DataTable({
             </thead>
             <tbody>
               {rows.map((row, i) => (
-                <tr key={i} className={i % 2 === 0 ? "bg-white/70" : "bg-white/85"}>
+                <tr key={i} className="bg-surface">
                   {cols.map((c) => {
                     const v = row[c];
                     const numeric = typeof v === "number";
                     return (
                       <td
                         key={c}
-                        className={`border-b border-divider px-3 py-2 text-sm text-ink ${numeric ? "text-right" : "text-left"}`}
+                        className={`border-b border-divider px-5 py-2.5 text-[0.8125rem] text-ink ${numeric ? "text-right" : "text-left"}`}
                       >
                         {cellText(v)}
                       </td>

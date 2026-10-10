@@ -61,7 +61,7 @@ function CardHeader() {
 /** One neutral stage card shell (value in text-ink). */
 function StageCard({ s }: { s: SalesFunnelStage }) {
   return (
-    <div className="flex flex-col justify-between rounded-[14px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]">
+    <div className="flex flex-col justify-between rounded-[8px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]">
       <div className="flex items-center justify-between">
         <span className="text-[0.7rem] font-bold uppercase tracking-[0.08em] text-muted">{s.name}</span>
         <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-brand" />
@@ -79,7 +79,7 @@ export function SalesFunnelCard({ loading, stages, connectors, overall, supports
     return (
       <section
         aria-label="Sales funnel"
-        className="mt-6 rounded-[20px] border border-border bg-surface p-5 shadow-[var(--dm-shadow)] backdrop-blur-[10px] saturate-[140%]"
+        className="mt-6 rounded-[10px] border border-border bg-surface p-5 shadow-[var(--dm-shadow)]"
       >
         <CardHeader />
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr_auto_1fr] md:items-stretch">
@@ -91,7 +91,7 @@ export function SalesFunnelCard({ loading, stages, connectors, overall, supports
                   <div className="h-2.5 w-8 rounded bg-muted/20 animate-pulse" />
                 </div>
               )}
-              <div className="flex flex-col justify-between rounded-[14px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]" aria-busy="true">
+              <div className="flex flex-col justify-between rounded-[8px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]" aria-busy="true">
                 <div className="h-3 w-16 rounded bg-muted/20 animate-pulse" />
                 <div className="mt-3 h-6 w-20 rounded bg-muted/20 animate-pulse" />
               </div>
@@ -113,7 +113,7 @@ export function SalesFunnelCard({ loading, stages, connectors, overall, supports
   return (
     <section
       aria-label="Sales funnel"
-      className="mt-6 rounded-[20px] border border-border bg-surface p-5 shadow-[var(--dm-shadow)] backdrop-blur-[10px] saturate-[140%]"
+      className="mt-6 rounded-[10px] border border-border bg-surface p-5 shadow-[var(--dm-shadow)]"
     >
       <CardHeader />
 
@@ -136,7 +136,7 @@ export function SalesFunnelCard({ loading, stages, connectors, overall, supports
             )}
             {i === 4 ? (
               /* CLOSING endpoint emphasis — slight blue ring + stronger fill */
-              <div className="flex flex-col justify-between rounded-[14px] border-2 border-brand/70 bg-brand/[0.06] p-4 shadow-[var(--dm-shadow-xs)] ring-1 ring-inset ring-brand/40">
+              <div className="flex flex-col justify-between rounded-[8px] border-2 border-brand/70 bg-brand/[0.06] p-4 shadow-[var(--dm-shadow-xs)] ring-1 ring-inset ring-brand/40">
                 <div className="flex items-center justify-between">
                   <span className="text-[0.7rem] font-bold uppercase tracking-[0.08em] text-muted">{s.name}</span>
                   <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-brand" />

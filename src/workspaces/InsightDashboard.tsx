@@ -94,7 +94,7 @@ function DataQualityStrip({ count, issues }: { count: number; issues: QualityIss
   const [open, setOpen] = useState(false);
   const listId = useId();
   return (
-    <div role="alert" className="mt-5 rounded-[12px] border border-warning/30 bg-warning/10 px-3 py-2 text-[0.84rem] text-ink">
+    <div role="alert" className="mt-5 rounded-[8px] border border-warning/30 bg-warning/10 px-3 py-2 text-[0.84rem] text-ink">
       <button
         type="button"
         aria-expanded={open}
@@ -121,7 +121,7 @@ function CollapsibleSection({ title, trailing, children }: { title: string; trai
   const [open, setOpen] = useState(false);
   const bodyId = useId();
   return (
-    <div className="overflow-hidden rounded-[14px] border border-border bg-surface shadow-[var(--dm-shadow-xs)]">
+    <div className="overflow-hidden rounded-[8px] border border-border bg-surface shadow-[var(--dm-shadow-xs)]">
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -326,7 +326,7 @@ export function InsightDashboard({ rows, onRefresh }: InsightDashboardProps) {
             </header>
 
             {/* Filters — wa-admin filter card treatment */}
-            <section className="mb-8 flex flex-wrap items-end gap-4 rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]">
+            <section className="mb-8 flex flex-wrap items-end gap-4 rounded-[8px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]">
               <div className="min-w-52">
                 <label className="mb-1 block text-[0.82rem] font-semibold text-muted" htmlFor="insight-from">Tanggal Awal</label>
                 <input
@@ -334,7 +334,7 @@ export function InsightDashboard({ rows, onRefresh }: InsightDashboardProps) {
                   type="date"
                   value={from}
                   onChange={(e) => setFrom(e.target.value)}
-                  className="w-full h-10 px-3 rounded-[12px] bg-surface-input border border-border text-ink focus:border-brand focus:ring-2 focus:ring-brand focus:ring-offset-2"
+                  className="w-full h-10 px-3 rounded-[8px] bg-surface-input border border-border text-ink focus:border-brand focus:ring-2 focus:ring-brand focus:ring-offset-2"
                 />
               </div>
               <div className="min-w-52">
@@ -344,7 +344,7 @@ export function InsightDashboard({ rows, onRefresh }: InsightDashboardProps) {
                   type="date"
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
-                  className="w-full h-10 px-3 rounded-[12px] bg-surface-input border border-border text-ink focus:border-brand focus:ring-2 focus:ring-brand focus:ring-offset-2"
+                  className="w-full h-10 px-3 rounded-[8px] bg-surface-input border border-border text-ink focus:border-brand focus:ring-2 focus:ring-brand focus:ring-offset-2"
                 />
               </div>
               <div className="min-w-52">
@@ -408,7 +408,7 @@ export function InsightDashboard({ rows, onRefresh }: InsightDashboardProps) {
                 <SectionHeader title="Ringkasan Performa" subtitle="Rasio turunan dari total metrik pada periode aktif." />
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {perfTiles.map((t) => (
-                    <div key={t.label} className="rounded-[16px] border border-border bg-white/70 p-4">
+                    <div key={t.label} className="rounded-[8px] border border-border bg-surface p-4">
                       <div className="text-[0.74rem] font-bold uppercase tracking-[0.04em] text-muted">{t.label}</div>
                       <div className="mt-1 text-[1.35rem] font-extrabold text-ink">
                         {t.value === null ? "—" : formatPercent(t.value, t.hasBase)}
@@ -430,7 +430,7 @@ export function InsightDashboard({ rows, onRefresh }: InsightDashboardProps) {
 
                 {/* 4. Platform comparison */}
                 <SectionHeader title="Perbandingan Platform" subtitle="Instagram vs TikTok (data mentah + rate turunan, tanpa peringkat)." />
-                <div className="overflow-x-auto rounded-[16px] border border-border bg-surface p-2 backdrop-blur-[8px] shadow-[var(--dm-shadow)]">
+                <div className="overflow-x-auto rounded-[8px] border border-border bg-surface p-2 shadow-[var(--dm-shadow)]">
                   <table className="w-full min-w-[520px] border-collapse text-left">
                     <thead className="border-b border-divider">
                       <tr>
@@ -513,7 +513,7 @@ export function InsightDashboard({ rows, onRefresh }: InsightDashboardProps) {
                 <div className="flex flex-col gap-3">
                   {model.periodSections.map((sec) => (
                     <CollapsibleSection key={sec.granularity} title={PERIOD_TITLE[sec.granularity]} trailing={`${sec.groups.length} periode`}>
-                      <div className="overflow-x-auto rounded-[12px] border border-border bg-white/60 p-2">
+                      <div className="overflow-x-auto rounded-[8px] border border-border bg-surface p-2">
                         {sec.groups.length === 0 ? (
                           <p className="px-2 py-4 text-[0.82rem] text-muted">Tidak ada data.</p>
                         ) : (
@@ -528,7 +528,7 @@ export function InsightDashboard({ rows, onRefresh }: InsightDashboardProps) {
                             </thead>
                             <tbody>
                               {sec.groups.map((g, i) => (
-                                <tr key={g.label} className={i % 2 === 0 ? "bg-white/60" : "bg-white/80"}>
+                                <tr key={g.label} className={i % 2 === 0 ? "bg-surface" : "bg-surface"}>
                                   <td className="px-2 py-1.5 text-[0.82rem] font-bold text-ink">{g.label}</td>
                                   {INSIGHT_METRIC_COLS.map((c) => (
                                     <td key={c} className="px-2 py-1.5 text-right text-[0.82rem] tabular-nums text-ink">
@@ -549,7 +549,7 @@ export function InsightDashboard({ rows, onRefresh }: InsightDashboardProps) {
 
                 {/* 7. Detail Data — collapsible (collapsed) */}
                 <CollapsibleSection title="Detail Data INSIGHT" trailing={`${model.filtered.length} baris`}>
-                  <div className="overflow-x-auto rounded-[12px] border border-border bg-white/60 p-2">
+                  <div className="overflow-x-auto rounded-[8px] border border-border bg-surface p-2">
                     <table className="w-full min-w-[760px] border-collapse text-left">
                       <thead className="border-b border-divider">
                         <tr>
@@ -560,7 +560,7 @@ export function InsightDashboard({ rows, onRefresh }: InsightDashboardProps) {
                       </thead>
                       <tbody>
                         {model.filtered.map((r, i) => (
-                          <tr key={i} className={i % 2 === 0 ? "bg-white/60" : "bg-white/80"}>
+                          <tr key={i} className={i % 2 === 0 ? "bg-surface" : "bg-surface"}>
                             <td className="px-3 py-2 text-sm text-ink">{str(r.TANGGAL)}</td>
                             <td className="px-3 py-2 text-sm text-ink">{str(r.PLATFORM)}</td>
                             {INSIGHT_METRIC_COLS.map((c) => (

@@ -8,12 +8,10 @@ import { useEffect, useState } from "react";
  * @/workspaces/InsightDashboard. No write path on this page.
  */
 import { useApi, type ApiFailure } from "@/lib/api-client";
-import { Topbar } from "@/components/layout/Topbar";
-import { Footer } from "@/components/layout/Footer";
-import { WorkspaceNav } from "@/components/layout/WorkspaceNav";
 import { Button } from "@/components/ui/Button";
 import { LoadingState } from "@/components/sections/LoadingState";
 import { ErrorState } from "@/components/sections/ErrorState";
+import { WorkspaceBody } from "@/components/layout/WorkspaceBody";
 import { InsightDashboard } from "@/workspaces/InsightDashboard";
 
 interface AuthMe { ok: boolean; identity: string; role: string }
@@ -87,38 +85,21 @@ export default function InsightPage() {
 
   if (status === "error" && table.error && !buffered) {
     return (
-      <div className="mx-auto w-full min-w-0 max-w-[1240px] px-4 sm:px-6">
-        <Topbar />
-        <WorkspaceNav activeUrl="insight" />
-        <main className="mx-auto mt-6 max-w-[1220px]">
+      <WorkspaceBody>
           <ErrorState failure={table.error} onRetry={table.refetch} />
-        </main>
-        <Footer />
-      </div>
+      </WorkspaceBody>
     );
   }
 
   if (!buffered && (status === "loading" || (status === "ready" && !table.data))) {
     return (
-      <div className="mx-auto w-full min-w-0 max-w-[1240px] px-4 sm:px-6">
-        <Topbar />
-        <WorkspaceNav activeUrl="insight" />
-        <main className="mx-auto mt-6 max-w-[1220px]">
+      <WorkspaceBody>
           <LoadingState variant="card" />
-        </main>
-        <Footer />
-      </div>
+      </WorkspaceBody>
     );
   }
 
   return (
-    <>
-      <Topbar />
-      <div className="mx-auto w-full max-w-[1220px] px-4 pt-5 sm:px-6">
-        <WorkspaceNav activeUrl="insight" />
-      </div>
       <InsightDashboard rows={rows} onRefresh={table.refetch} />
-      <Footer />
-    </>
   );
 }

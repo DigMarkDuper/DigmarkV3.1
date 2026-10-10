@@ -16,8 +16,8 @@ export interface WorkspaceSectionProps {
 export function WorkspaceSection({ modules = MODULES, id = "workspace" }: WorkspaceSectionProps) {
   return (
     <section className="my-6" id={id}>
-      <h2 className="text-[1.9rem] font-extrabold tracking-tight text-ink">Explore Your Workspace</h2>
-      <p className="mt-2 text-[1rem] text-muted">Pilih modul untuk membuka workspace digital marketing Anda.</p>
+      <h2 className="text-[1.5rem] font-extrabold tracking-tight text-ink">Explore Your Workspace</h2>
+      <p className="mt-2 text-[0.9375rem] text-muted">Pilih modul untuk membuka workspace digital marketing Anda.</p>
       <div className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-6">
         {modules.map((m) => <WorkspaceCard key={m.url} module={m} />)}
       </div>

@@ -54,7 +54,7 @@ const ERROR_COPY = "Data gagal diperbarui. Silakan coba lagi.";
  * Local field primitives — VERBATIM copy from WaAdminDataForm.tsx.
  * ------------------------------------------------------------------------ */
 const FIELD_BASE =
-  "w-full h-10 px-3 rounded-[12px] bg-surface-input border border-border text-ink " +
+  "w-full h-10 px-3 rounded-[8px] bg-surface-input border border-border text-ink " +
   "placeholder:text-muted/70 focus:border-brand focus:shadow-[var(--dm-shadow-xs)] " +
   "focus:ring-2 focus:ring-brand focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
 const FIELD_ERROR = " border-danger focus:border-danger focus:ring-danger";
@@ -547,7 +547,7 @@ export function WaAdminEditData({ rows, onRefresh }: WaAdminEditDataProps) {
                         openEditFor(row);
                       }
                     }}
-                    className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-[14px] border border-border bg-surface-input px-4 py-3 transition-colors hover:border-brand focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand"
+                    className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-[8px] border border-border bg-surface-input px-4 py-3 transition-colors hover:border-brand focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand"
                   >
                     <span className="min-w-0">
                       <span className="block truncate text-[0.9rem] font-semibold text-ink">
@@ -661,13 +661,13 @@ export function WaAdminEditData({ rows, onRefresh }: WaAdminEditDataProps) {
           className="z-[70]"
         >
           <div
-            className="fixed inset-0 bg-ink/40 backdrop-blur-sm"
+            className="fixed inset-0 bg-ink/40"
             onClick={goClose}
             aria-hidden
           />
-          <div className="fixed left-1/2 top-1/2 z-10 flex max-h-[92vh] w-[96%] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[20px] border border-border bg-surface shadow-[var(--dm-shadow)]">
+          <div className="fixed left-1/2 top-1/2 z-10 flex max-h-[92vh] w-[96%] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[10px] border border-border bg-surface shadow-[var(--dm-shadow)]">
             <div className="flex flex-wrap items-center gap-3 border-b border-divider px-5 py-3.5">
-              <span aria-hidden className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-brand/10 text-[1.05rem]">
+              <span aria-hidden className="flex h-8 w-8 items-center justify-center rounded-[6px] bg-brand/10 text-[1.05rem]">
                 {icon}
               </span>
               <h3 className="text-[1.15rem] font-extrabold tracking-[-0.01em] text-ink">
@@ -702,8 +702,8 @@ export function WaAdminEditData({ rows, onRefresh }: WaAdminEditDataProps) {
       {toast ? (
         <div
           role="status"
-          className={`fixed bottom-6 right-6 z-[80] grid grid-cols-[auto_1fr] items-center gap-2.5 rounded-[14px] border bg-surface px-4 py-3 shadow-[var(--dm-shadow)] ${
-            toast.kind === "error" ? "border-danger/40" : "border-success/40"
+          className={`fixed bottom-6 right-6 z-[80] grid grid-cols-[auto_1fr] items-center gap-2.5 rounded-[8px] border bg-surface px-4 py-3 shadow-[var(--dm-shadow)] ${
+ toast.kind === "error" ? "border-danger/40" : "border-success/40"
           }`}
         >
           <span aria-hidden className="text-[1.05rem]">

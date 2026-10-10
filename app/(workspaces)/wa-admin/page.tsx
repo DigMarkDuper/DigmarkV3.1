@@ -12,14 +12,12 @@
 import { useState } from "react";
 import { useApi, type ApiFailure } from "@/lib/api-client";
 import { columnsFor } from "@/server/adapter/schema";
-import { Topbar } from "@/components/layout/Topbar";
-import { Footer } from "@/components/layout/Footer";
-import { WorkspaceNav } from "@/components/layout/WorkspaceNav";
 import { ModuleHero } from "@/components/layout/ModuleHero";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/sections/EmptyState";
 import { LoadingState } from "@/components/sections/LoadingState";
 import { ErrorState } from "@/components/sections/ErrorState";
+import { WorkspaceBody } from "@/components/layout/WorkspaceBody";
 import { WaAdminDashboard } from "@/workspaces/WaAdminDashboard";
 
 interface AuthMe { ok: boolean; identity: string; role: string }
@@ -86,14 +84,9 @@ export default function WaAdminPage() {
   // Data error -> ErrorState with retry.
   if (status === "error" && table.error) {
     return (
-      <div className="mx-auto w-full min-w-0 max-w-[1720px] px-4 sm:px-6 lg:px-8">
-        <Topbar />
-        <WorkspaceNav activeUrl="wa-admin" />
-        <main className="mx-auto mt-6 max-w-[1700px]">
+      <WorkspaceBody wide>
           <ErrorState failure={table.error} onRetry={table.refetch} />
-        </main>
-        <Footer />
-      </div>
+      </WorkspaceBody>
     );
   }
 
@@ -104,33 +97,23 @@ export default function WaAdminPage() {
         (status === "loading" || (status === "ready" && !table.data)) && !lastRows;
     if (initialLoading) {
       return (
-        <div className="mx-auto w-full min-w-0 max-w-[1720px] px-4 sm:px-6 lg:px-8">
-          <Topbar />
-          <WorkspaceNav activeUrl="wa-admin" />
-          <main className="mx-auto mt-6 max-w-[1700px]">
+        <WorkspaceBody wide>
             <LoadingState variant="card" />
-          </main>
-          <Footer />
-        </div>
+        </WorkspaceBody>
       );
     }
 
     // Empty / no data (with nothing stale to show) -> V3 empty state, stop.
     if ((status === "empty" || !table.data) && !lastRows) {
       return (
-        <div className="mx-auto w-full min-w-0 max-w-[1720px] px-4 sm:px-6 lg:px-8">
-          <Topbar />
-          <WorkspaceNav activeUrl="wa-admin" />
-          <main className="mx-auto mt-6 max-w-[1700px]">
+        <WorkspaceBody wide>
             <ModuleHero
               icon="💬"
               title="WhatsApp Admin"
               desc="Leads masuk, funnel closing, dan distribusi status."
             />
             <EmptyState title="Data WA Admin tidak tersedia." hint="Periksa source data atau filter." />
-          </main>
-          <Footer />
-        </div>
+        </WorkspaceBody>
       );
     }
 
@@ -138,18 +121,11 @@ export default function WaAdminPage() {
     // (includes its own layout container). New rows land via the lastRows buffer.
     const rows = table.data?.rows ?? lastRows ?? [];
     return (
-      <>
-        <Topbar />
-        <div className="mx-auto w-full max-w-[1720px] px-4 pt-5 sm:px-6 lg:px-8">
-          <WorkspaceNav activeUrl="wa-admin" />
-        </div>
         <WaAdminDashboard
           rows={rows}
           columns={columnsFor("wa_admin")}
           registrationRows={registration.status === "ready" && registration.data ? registration.data.rows : []}
           onRefresh={table.refetch}
         />
-        <Footer />
-      </>
     );
   }

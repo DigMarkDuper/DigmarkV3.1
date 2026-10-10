@@ -19,22 +19,22 @@ export interface HeroVisualPanelProps {
   loading?: boolean;
 }
 
-/** A single white metric chip (bg-white/85 per spec C.3). */
+/** A single white metric chip (bg-surface per spec C.3). */
 export function MetricChip({ value, label }: { value: string; label: string }) {
   return (
-    <div className="rounded-[14px] border border-border bg-white/85 px-3 py-2 shadow-[var(--dm-shadow-xs-b6)]">
+    <div className="rounded-[8px] border border-border bg-surface px-3 py-2 shadow-[var(--dm-shadow-xs-b6)]">
       <strong className="block font-sans text-ink">{value}</strong>
       <span className="block text-muted text-[0.78rem]">{label}</span>
     </div>
   );
 }
 
-/** The 70px yellow radial module-count ball (spec C.3 / F.19). */
+/** The 48px module-count ball (spec C.3 / F.19, retuned to the Sneat density). */
 export function ModuleBall({ count }: { count: number }) {
   return (
     <div
       aria-label={`${count} modules`}
-      className="flex h-[70px] w-[70px] shrink-0 items-center justify-center rounded-full text-[1.9rem] font-extrabold text-ink shadow-[var(--dm-shadow-ball)]"
+      className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-full text-[1.25rem] font-bold text-ink shadow-[var(--dm-shadow-ball)]"
       style={{
         backgroundImage: `radial-gradient(circle at 30% 30%, ${PALETTE.accent} 0%, ${PALETTE.accentDeep} 60%, ${PALETTE.accent} 100%)`,
       }}
@@ -44,34 +44,46 @@ export function ModuleBall({ count }: { count: number }) {
   );
 }
 
-export function HeroVisualPanel({ closing, roas, moduleCount, live, loading = false }: HeroVisualPanelProps) {
+export function HeroVisualPanel({
+  closing,
+  roas,
+  moduleCount,
+  live,
+  loading = false,
+}: HeroVisualPanelProps) {
   return (
-    <div className="relative p-4">
-      <div className="bg-surface p-5 px-6 backdrop-blur-[14px] saturate-[150%] border border-border rounded-[22px] shadow-[var(--dm-shadow-panel)]">
+    <div className="relative p-2">
+      <div className="bg-surface p-4 border border-border rounded-[8px] shadow-[var(--dm-shadow-panel)]">
         {/* PanelHeader */}
-        <div className="flex items-center gap-4">
-          <div className="flex h-[56px] w-[56px] items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-brand-hover text-[1.35rem] font-extrabold text-white shadow-[var(--dm-shadow-mono)]">
+        <div className="flex items-center gap-3">
+          <div className="flex h-[40px] w-[40px] items-center justify-center rounded-[6px] bg-brand text-[1rem] font-bold text-white shadow-[var(--dm-shadow-mono)]">
             DM
           </div>
           <div className="min-w-0 flex-1">
-            <div className="font-bold text-ink">Command Center</div>
-            <div className="text-muted text-[0.82rem]">LPK Duta Persada</div>
+            <div className="font-semibold text-ink text-[0.9375rem]">
+              Command Center
+            </div>
+            <div className="text-muted text-[0.78rem]">LPK Duta Persada</div>
           </div>
         </div>
 
         {/* PanelMetrics: chip → yellow arrow → chip */}
-        <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+        <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
           <MetricChip value={loading ? "—" : closing} label="siswa closing" />
-          <span aria-hidden className="text-[1.6rem] font-bold text-accent shadow-[var(--dm-shadow-arrow)]">
+          <span
+            aria-hidden
+            className="text-[1.25rem] font-semibold text-ink shadow-[var(--dm-shadow-arrow)]"
+          >
             →
           </span>
           <MetricChip value={loading ? "—" : roas} label="ROAS" />
         </div>
 
         {/* PanelFooter */}
-        <div className="mt-5 flex items-center gap-4">
+        <div className="mt-4 flex items-center gap-3">
           <div className="min-w-0 flex-1 text-muted text-[0.82rem]">
-            {moduleCount} modules • {live ? "semua data live ke Google Sheets" : "data sedang sync"}
+            {moduleCount} modules •{" "}
+            {live ? "semua data live ke Google Sheets" : "data sedang sync"}
           </div>
           <ModuleBall count={moduleCount} />
         </div>

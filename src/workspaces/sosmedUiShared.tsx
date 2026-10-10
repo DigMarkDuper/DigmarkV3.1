@@ -184,7 +184,7 @@ export function MultiSelectDropdown({
           setOpenMenu(name);
         }}
         className={
-          "inline-flex w-full items-center gap-2 rounded-[12px] border bg-surface-input px-3 py-2 text-[0.82rem] font-semibold transition-colors " +
+ "inline-flex w-full items-center gap-2 rounded-[8px] border bg-surface-input px-3 py-2 text-[0.82rem] font-semibold transition-colors " +
           (sum.active ? "border-brand/40 text-brand" : "border-border text-ink hover:border-brand/30 hover:text-brand-hover")
         }
       >
@@ -207,7 +207,7 @@ export function MultiSelectDropdown({
           onKeyDown={(e) => {
             if (e.key === "Escape") { setOpenMenu(null); triggerRef.current?.focus(); }
           }}
-          className={`absolute z-30 mt-2 ${alignRight ? "right-0" : "left-0"} w-64 min-w-0 rounded-[12px] border border-border bg-surface p-2 shadow-[var(--dm-shadow-panel)]`}
+          className={`absolute z-30 mt-2 ${alignRight ? "right-0" : "left-0"} w-64 min-w-0 rounded-[8px] border border-border bg-surface p-2 shadow-[var(--dm-shadow-panel)]`}
         >
           <input
             ref={searchRef}
@@ -215,7 +215,7 @@ export function MultiSelectDropdown({
             onChange={(e) => setQuery(e.target.value)}
             placeholder={placeholder}
             aria-label={label}
-            className="w-full rounded-[8px] border border-border bg-surface-input px-2.5 py-1.5 text-[0.82rem] text-ink placeholder:text-muted focus:border-brand focus:ring-2 focus:ring-brand focus:outline-none"
+            className="w-full rounded-[6px] border border-border bg-surface-input px-2.5 py-1.5 text-[0.82rem] text-ink placeholder:text-muted focus:border-brand focus:ring-2 focus:ring-brand focus:outline-none"
           />
           <label className="mt-1 flex cursor-pointer items-center gap-2 border-b border-divider py-1.5 text-[0.82rem] font-medium text-ink">
             <input type="checkbox" checked={sum.allChecked} onChange={toggleAll} className="h-[15px] w-[15px] rounded-[4px] border-2 border-brand/40 accent-brand focus:ring-2 focus:ring-brand" />
@@ -273,9 +273,9 @@ export function WorkloadBars({ items }: { items: { pic: string; selesai: number;
 /** Operational per-PIC workload table (capacity monitoring, NOT a ranking). */
 export function PicCapacityRows({ items }: { items: { pic: string; total: number; done: number; pending: number; overdue: number; completionPct: number | null }[] }) {
   return (
-    <div className="overflow-x-auto rounded-[12px] border border-border bg-surface/70">
+    <div className="overflow-x-auto rounded-[8px] border border-border bg-surface">
       <table className="w-full border-collapse text-left">
-        <thead className="border-b border-divider bg-white/80 text-[0.74rem] uppercase tracking-[0.02em] text-muted">
+        <thead className="border-b border-divider bg-surface text-[0.74rem] uppercase tracking-[0.02em] text-muted">
           <tr>
             <th className="px-3 py-2 text-left">PIC</th>
             <th className="px-3 py-2 text-right">Total</th>
@@ -424,7 +424,7 @@ export function InteractiveOutputTrend({ points }: { points: { label: string; pl
   const tipLeft = Math.min(Math.max(hoverFrac !== null ? hoverFrac * 100 : 50, 14), 86);
 
   return (
-    <div className="relative rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)] backdrop-blur-[8px]">
+    <div className="relative rounded-[8px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]">
       {/* Legend row (Rencana / Selesai) + toolbar */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -433,7 +433,7 @@ export function InteractiveOutputTrend({ points }: { points: { label: string; pl
             aria-pressed={showPlanned}
             aria-label="Tampilkan atau sembunyikan seri Rencana"
             onClick={() => setShowPlanned((s) => (s && !showDone ? s : !s))}
-            className={`inline-flex items-center gap-2 rounded-[10px] border px-2.5 py-1 text-[0.82rem] font-semibold transition-colors ${showPlanned ? "border-border bg-surface-input text-ink" : "border-border/60 bg-transparent text-muted/60"}`}
+            className={`inline-flex items-center gap-2 rounded-[6px] border px-2.5 py-1 text-[0.82rem] font-semibold transition-colors ${showPlanned ? "border-border bg-surface-input text-ink" : "border-border/60 bg-transparent text-muted/60"}`}
           >
             <span aria-hidden className="h-3 w-3 rounded-sm" style={{ background: showPlanned && plannedVisible ? PALETTE.muted : "rgba(0,0,0,0.25)" }} />
             Rencana{showPlanned ? `: ${hoverPt ? hoverPt.planned : visible.reduce((s, p) => s + p.planned, 0)}` : ""}
@@ -443,7 +443,7 @@ export function InteractiveOutputTrend({ points }: { points: { label: string; pl
             aria-pressed={showDone}
             aria-label="Tampilkan atau sembunyikan seri Selesai"
             onClick={() => setShowDone((s) => (s && !showPlanned ? s : !s))}
-            className={`inline-flex items-center gap-2 rounded-[10px] border px-2.5 py-1 text-[0.82rem] font-semibold transition-colors ${showDone ? "border-border bg-surface-input text-ink" : "border-border/60 bg-transparent text-muted/60"}`}
+            className={`inline-flex items-center gap-2 rounded-[6px] border px-2.5 py-1 text-[0.82rem] font-semibold transition-colors ${showDone ? "border-border bg-surface-input text-ink" : "border-border/60 bg-transparent text-muted/60"}`}
           >
             <span aria-hidden className="h-3 w-3 rounded-sm" style={{ background: showDone && doneVisible ? PALETTE.success : "rgba(0,0,0,0.25)" }} />
             Selesai{showDone ? `: ${hoverPt ? hoverPt.done : visible.reduce((s, p) => s + p.done, 0)}` : ""}
@@ -452,13 +452,13 @@ export function InteractiveOutputTrend({ points }: { points: { label: string; pl
         <div className="flex items-center gap-2">
           {!isTransformDefault ? (
             <button type="button" onClick={reset} aria-label="Reset tampilan tren"
-              className="inline-flex items-center gap-1.5 rounded-[10px] border border-border bg-surface-input px-2.5 py-1 text-[0.8rem] font-semibold text-brand transition-colors hover:border-brand/40 hover:text-brand-hover">
+              className="inline-flex items-center gap-1.5 rounded-[6px] border border-border bg-surface-input px-2.5 py-1 text-[0.8rem] font-semibold text-brand transition-colors hover:border-brand/40 hover:text-brand-hover">
               ⤺ Reset View
             </button>
           ) : null}
           <span className="text-[0.72rem] tabular-nums text-muted">Skala {scale.toFixed(1)}×</span>
-          <button type="button" onClick={() => zoomCenter(1.5)} aria-label="Perbesar tren" className="flex h-7 w-7 items-center justify-center rounded-[8px] border border-border bg-surface-input text-ink hover:border-brand/40">＋</button>
-          <button type="button" onClick={() => zoomCenter(1 / 1.5)} aria-label="Perkecil tren" className="flex h-7 w-7 items-center justify-center rounded-[8px] border border-border bg-surface-input text-ink hover:border-brand/40">−</button>
+          <button type="button" onClick={() => zoomCenter(1.5)} aria-label="Perbesar tren" className="flex h-7 w-7 items-center justify-center rounded-[6px] border border-border bg-surface-input text-ink hover:border-brand/40">＋</button>
+          <button type="button" onClick={() => zoomCenter(1 / 1.5)} aria-label="Perkecil tren" className="flex h-7 w-7 items-center justify-center rounded-[6px] border border-border bg-surface-input text-ink hover:border-brand/40">−</button>
         </div>
       </div>
 
@@ -530,7 +530,7 @@ export function InteractiveOutputTrend({ points }: { points: { label: string; pl
 
       {/* HTML tooltip (pointer-events-none, Indonesian) */}
       {hoverPt ? (
-        <div role="status" className="pointer-events-none absolute z-10 min-w-[11rem] rounded-[12px] border border-border bg-surface p-2.5 shadow-[var(--dm-shadow-panel)]"
+        <div role="status" className="pointer-events-none absolute z-10 min-w-[11rem] rounded-[8px] border border-border bg-surface p-2.5 shadow-[var(--dm-shadow-panel)]"
           style={{ left: `${tipLeft}%`, top: "8px", transform: "translateX(-50%)" }}>
           <p className="mb-1 text-[0.72rem] font-bold uppercase tracking-wide text-muted">Minggu {hoverPt.label}</p>
           <p className="text-[0.85rem] text-ink"><span className="font-semibold">Rencana:</span> {hoverPt.planned}</p>
@@ -559,7 +559,7 @@ export function StrategyBar({ value, count, sharePct, fill }: { value: string; c
 /** Small colour chip + count (used inside deadline list). */
 export function countChip(label: string, count: number, tone: string) {
   return (
-    <div className={`flex items-center justify-between rounded-[12px] border px-3 py-2 ${tone}`}>
+    <div className={`flex items-center justify-between rounded-[8px] border px-3 py-2 ${tone}`}>
       <span className="text-[0.85rem] font-semibold text-ink">{label}</span>
       <span className="text-[1rem] font-extrabold text-ink">{count}</span>
     </div>
@@ -600,7 +600,7 @@ export function filterCardHeader(label: string) {
  * ------------------------------------------------------------------------ */
 
 const FIELD_BASE =
-  "w-full h-10 px-3 rounded-[12px] bg-surface-input border border-border text-ink " +
+  "w-full h-10 px-3 rounded-[8px] bg-surface-input border border-border text-ink " +
   "placeholder:text-muted/70 focus:border-brand focus:shadow-[var(--dm-shadow-xs)] " +
   "focus:ring-2 focus:ring-brand focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
 
@@ -646,15 +646,15 @@ export function ContentPlannerModal({
   const sel = (v: string) => ({ value: v, label: v });
   return (
     <div role="dialog" aria-modal="true" aria-label="Content Plan Baru"
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-white/60 backdrop-blur-md px-4 py-10">
-      <div className="w-full max-w-3xl rounded-[20px] border border-border bg-surface p-6 shadow-[var(--dm-shadow-panel)]">
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-surface px-4 py-10">
+      <div className="w-full max-w-3xl rounded-[10px] border border-border bg-surface p-6 shadow-[var(--dm-shadow-panel)]">
         <div className="mb-5 flex items-center justify-between">
           <div>
             <h2 className="text-[1.25rem] font-extrabold text-ink">Content Plan Baru</h2>
             <p className="text-[0.85rem] text-muted">Rencanakan konten; jadwal produksi Anda akan otomatis dibuat saat disimpan atau ditambahkan ke produksi.</p>
           </div>
           <button type="button" aria-label="Tutup" onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-border bg-surface-input text-muted hover:text-ink">✕</button>
+            className="flex h-9 w-9 items-center justify-center rounded-[6px] border border-border bg-surface-input text-muted hover:text-ink">✕</button>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -739,9 +739,9 @@ export interface ExplorerFilterDim {
 }
 
 export const btnPage =
-  "h-8 min-w-8 rounded-[8px] border border-border bg-surface-input px-2 text-[0.8rem] font-semibold text-ink disabled:opacity-40 disabled:cursor-not-allowed hover:border-brand/40";
+  "h-8 min-w-8 rounded-[6px] border border-border bg-surface-input px-2 text-[0.8rem] font-semibold text-ink disabled:opacity-40 disabled:cursor-not-allowed hover:border-brand/40";
 export const btnReset =
-  "inline-flex items-center justify-center gap-2 rounded-[10px] border border-border bg-surface-input px-3 py-1.5 text-[0.82rem] font-semibold text-brand transition-colors hover:border-brand/40 hover:text-brand-hover";
+  "inline-flex items-center justify-center gap-2 rounded-[6px] border border-border bg-surface-input px-3 py-1.5 text-[0.82rem] font-semibold text-brand transition-colors hover:border-brand/40 hover:text-brand-hover";
 
 const EXPLORER_DEADLINES: { value: string; label: string }[] = [
   { value: "ALL", label: "Semua" },
@@ -847,7 +847,7 @@ export function ContentExplorer({
     }
     // editor — EVERY COLUMN_DEFS source is editable (save-back via diffPatches)
     const idx = originalIndex(row);
-    const cellInput = "w-24 rounded-[8px] border border-border bg-surface-input px-2 py-1 text-[0.82rem] text-ink";
+    const cellInput = "w-24 rounded-[6px] border border-border bg-surface-input px-2 py-1 text-[0.82rem] text-ink";
     if (key === "pic") {
       return <Select value={str(val)} options={pics.map((o) => ({ value: o, label: o }))} onSelect={(v) => setCell(idx, "PIC", v)} />;
     }
@@ -903,17 +903,17 @@ export function ContentExplorer({
           <span aria-hidden className="absolute left-3 top-1/2 -translate-y-1/2 text-muted">🔎</span>
           <input type="search" value={query} onChange={(e) => setQuery(e.target.value)}
             placeholder="Cari konten, kode, PIC…" aria-label="Cari konten"
-            className="w-full h-9 rounded-[10px] border border-border bg-surface-input pl-8 pr-3 text-[0.82rem] text-ink placeholder:text-muted/70 focus:border-brand focus:ring-2 focus:ring-brand focus:outline-none" />
+            className="w-full h-9 rounded-[6px] border border-border bg-surface-input pl-8 pr-3 text-[0.82rem] text-ink placeholder:text-muted/70 focus:border-brand focus:ring-2 focus:ring-brand focus:outline-none" />
         </div>
         <div ref={colWrapRef} className="relative">
           <button type="button" onClick={() => setColMenuOpen(!colMenuOpen)} aria-expanded={colMenuOpen} aria-haspopup="menu"
-            className="inline-flex h-9 items-center gap-1.5 rounded-[10px] border border-border bg-surface-input px-3 text-[0.82rem] font-semibold text-ink hover:border-brand/40">
+            className="inline-flex h-9 items-center gap-1.5 rounded-[6px] border border-border bg-surface-input px-3 text-[0.82rem] font-semibold text-ink hover:border-brand/40">
             ⚙ Kolom
           </button>
           {colMenuOpen ? (
-            <div className="absolute right-0 z-30 mt-2 w-64 rounded-[12px] border border-border bg-surface p-2 shadow-[var(--dm-shadow-panel)]">
+            <div className="absolute right-0 z-30 mt-2 w-64 rounded-[8px] border border-border bg-surface p-2 shadow-[var(--dm-shadow-panel)]">
               <input value={colQuery} onChange={(e) => setColQuery(e.target.value)} placeholder="Cari kolom…" aria-label="Cari kolom"
-                className="w-full rounded-[8px] border border-border bg-surface-input px-2.5 py-1.5 text-[0.82rem] text-ink placeholder:text-muted focus:border-brand" />
+                className="w-full rounded-[6px] border border-border bg-surface-input px-2.5 py-1.5 text-[0.82rem] text-ink placeholder:text-muted focus:border-brand" />
               <label className="mt-1 flex cursor-pointer items-center gap-2 border-b border-divider py-1.5 text-[0.82rem] font-medium text-ink">
                 <input type="checkbox" checked={visibleCols.length === COLUMN_DEFS.length} onChange={() => setVisibleCols(visibleCols.length === COLUMN_DEFS.length ? [...EXPLORER_DEFAULT_COLS] : COLUMN_DEFS.map((d) => d.key))}
                   className="h-[15px] w-[15px] accent-brand" />
@@ -943,7 +943,7 @@ export function ContentExplorer({
           ) : null}
         </div>
         <button type="button" onClick={onExpand} aria-label="Perluas ke layar penuh"
-          className="inline-flex h-9 items-center gap-1.5 rounded-[10px] border border-border bg-surface-input px-3 text-[0.82rem] font-semibold text-ink hover:border-brand/40">
+          className="inline-flex h-9 items-center gap-1.5 rounded-[6px] border border-border bg-surface-input px-3 text-[0.82rem] font-semibold text-ink hover:border-brand/40">
           ↗ Perluas
         </button>
       </div>
@@ -958,7 +958,7 @@ export function ContentExplorer({
           <div className="flex flex-col gap-1">
             <label className="text-[0.82rem] font-semibold text-muted">Deadline</label>
             <select value={dlSel} onChange={(e) => setDlSel(e.target.value)} aria-label="Deadline"
-              className="w-full h-9 rounded-[10px] border border-border bg-surface-input px-2 text-[0.82rem] text-ink focus:border-brand focus:ring-2 focus:ring-brand focus:outline-none">
+              className="w-full h-9 rounded-[6px] border border-border bg-surface-input px-2 text-[0.82rem] text-ink focus:border-brand focus:ring-2 focus:ring-brand focus:outline-none">
               {EXPLORER_DEADLINES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
@@ -975,9 +975,9 @@ export function ContentExplorer({
       {rows.length === 0 ? (
         <p className="px-3 py-6 text-center text-[0.9rem] font-semibold text-muted">Tidak ada konten sesuai pencarian/filter.</p>
       ) : (
-        <div className="overflow-x-auto rounded-[16px] border border-border bg-surface shadow-[var(--dm-shadow)]">
+        <div className="overflow-x-auto rounded-[8px] border border-border bg-surface shadow-[var(--dm-shadow)]">
           <table className="w-full min-w-[920px] border-collapse text-left">
-            <thead className="sticky top-0 z-10 border-b border-divider bg-white/90 backdrop-blur-[8px]">
+            <thead className="sticky top-0 z-10 border-b border-divider bg-surface">
               <tr>
                 {cols.map((d) => (
                   <th key={d.key} className="px-3 py-2 text-left text-[0.8rem] font-semibold uppercase tracking-[0.02em] text-muted">{d.header}</th>
@@ -987,7 +987,7 @@ export function ContentExplorer({
             <tbody>
               {pageRows.map((row, i) => (
                 <tr key={originalIndex(row)} tabIndex={-1} onClick={() => onOpenDetail(row)}
-                  className={`cursor-pointer transition-colors hover:bg-brand/[0.03] ${i % 2 === 0 ? "bg-white/70" : "bg-white/85"}`}>
+                  className={`cursor-pointer transition-colors hover:bg-brand/[0.03] ${i % 2 === 0 ? "bg-surface" : "bg-surface"}`}>
                   {cols.map((d) => (
                     <td key={d.key} className="border-b border-divider px-3 py-2.5 text-[0.85rem]">{renderCell(row, d.key)}</td>
                   ))}
@@ -1068,7 +1068,7 @@ export function RowDetailDrawer({
   };
   return (
     <>
-      <div aria-hidden className="fixed inset-0 z-40 bg-white/40 backdrop-blur-sm" onClick={onClose} />
+      <div aria-hidden className="fixed inset-0 z-40 bg-white/40" onClick={onClose} />
       <aside role="dialog" aria-modal="true" aria-label="Detail Konten"
         className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[440px] flex-col border-l border-border bg-surface shadow-[var(--dm-shadow-lift)]">
         <header className="flex items-start justify-between gap-3 border-b border-divider px-5 py-4">
@@ -1077,7 +1077,7 @@ export function RowDetailDrawer({
             <h3 className="truncate text-[1.1rem] font-extrabold text-ink">{str(row["Judul Konten"]) || str(row["Kode Konten"])}</h3>
           </div>
           <button type="button" aria-label="Tutup" onClick={onClose}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-border bg-surface-input text-muted hover:text-ink">✕</button>
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[6px] border border-border bg-surface-input text-muted hover:text-ink">✕</button>
         </header>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -1110,7 +1110,7 @@ export function RowDetailDrawer({
                 <Select value={str(val("PROSES"))} options={PROSES_OPTIONS.map((o) => ({ value: o, label: o }))} onSelect={(v) => idx >= 0 && setCell(idx, "PROSES", v)} />
               </label>
               <label className="text-[0.78rem] font-semibold text-muted">Output
-                <input type="text" value={str(val("Output"))} onChange={(e) => idx >= 0 && setCell(idx, "Output", e.target.value)} className="w-full h-10 px-3 rounded-[12px] bg-surface-input border border-border text-ink" />
+                <input type="text" value={str(val("Output"))} onChange={(e) => idx >= 0 && setCell(idx, "Output", e.target.value)} className="w-full h-10 px-3 rounded-[8px] bg-surface-input border border-border text-ink" />
               </label>
               <div className="flex items-center gap-5">
                 {["IG", "YT", "TIKTOK"].map((b) => (
@@ -1154,7 +1154,7 @@ export function SosmedSubNav() {
     { href: "/sosmed/reporting", label: "Reporting" },
   ];
   return (
-    <nav aria-label="Sosmed sub-navigation" className="my-4 inline-flex items-center gap-1 rounded-[12px] border border-border bg-surface p-1 shadow-[var(--dm-shadow-xs)]">
+    <nav aria-label="Sosmed sub-navigation" className="my-4 inline-flex items-center gap-1 rounded-[8px] border border-border bg-surface p-1 shadow-[var(--dm-shadow-xs)]">
       {items.map((it) => {
         const active = pathname === it.href;
         return (
@@ -1162,8 +1162,8 @@ export function SosmedSubNav() {
             key={it.href}
             href={it.href}
             aria-current={active ? "page" : undefined}
-            className={`inline-flex items-center gap-1 rounded-[10px] px-4 py-1.5 text-[0.85rem] font-semibold transition-colors ${
-              active ? "bg-brand text-white shadow-[var(--dm-shadow-xs)]" : "text-muted hover:text-ink"
+            className={`inline-flex items-center gap-1 rounded-[6px] px-4 py-1.5 text-[0.85rem] font-semibold transition-colors ${
+ active ? "bg-brand text-white shadow-[var(--dm-shadow-xs)]" : "text-muted hover:text-ink"
             }`}
           >
             {it.label}

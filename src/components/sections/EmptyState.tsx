@@ -11,7 +11,7 @@ export function EmptyState({ title, hint, icon = "📭" }: EmptyStateProps) {
   return (
     <div
       role="status"
-      className="rounded-[16px] border border-dashed border-divider bg-white/60 px-6 py-16 text-center"
+      className="rounded-[8px] border border-dashed border-divider bg-surface px-6 py-16 text-center"
     >
       <div className="mx-auto flex flex-col items-center justify-center gap-3">
         <span aria-hidden className="text-[2.5rem]">{icon}</span>

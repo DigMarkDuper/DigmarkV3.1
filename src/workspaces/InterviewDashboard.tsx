@@ -65,17 +65,17 @@ function MultiSelect({
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="mt-1 w-full rounded-[12px] border border-border bg-surface px-3 py-2 text-left text-[0.9rem] font-semibold text-ink shadow-[var(--dm-shadow-xs)] outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        className="mt-1 w-full rounded-[8px] border border-border bg-surface px-3 py-2 text-left text-[0.9rem] font-semibold text-ink shadow-[var(--dm-shadow-xs)] outline-none focus-visible:ring-2 focus-visible:ring-brand"
       >
         {selected.size ? `${selected.size} terpilih` : "— Semua —"}
         <span className="ml-auto float-right text-muted">{open ? "▲" : "▼"}</span>
       </button>
       {open ? (
-        <div className="absolute z-20 mt-1 w-full rounded-[12px] border border-border bg-surface shadow-[var(--dm-shadow)]">
+        <div className="absolute z-20 mt-1 w-full rounded-[8px] border border-border bg-surface shadow-[var(--dm-shadow)]">
           {options.length ? options.map((o) => {
             const checked = selected.has(o);
             return (
-              <label key={o} className="flex cursor-pointer items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-[0.85rem] text-ink hover:bg-surface-strong">
+              <label key={o} className="flex cursor-pointer items-center gap-2 rounded-[6px] px-2.5 py-1.5 text-[0.85rem] text-ink hover:bg-surface-strong">
                 <input
                   type="checkbox"
                   checked={checked}

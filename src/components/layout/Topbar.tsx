@@ -1,59 +1,49 @@
 /**
- * Topbar — persistent brand + Home affordance (UI_DESIGN_SPEC.md §C.1).
+ * Topbar — the in-shell sticky topbar (Phase 2 Sneat shell).
  *
- * No sidebar (V3 display:none is preserved: the workspace-card grid is the
- * navigation, so this topbar keeps only brand + Home). Sticky with a frosted
- * blur over content (spec B.8 z-40).
+ * Presentational only: no pathname, no client state. AppShell owns every piece
+ * of shell state (drawer, collapse preference) and passes the breadcrumb label
+ * plus the hamburger callback down. Branding, search, notifications, the theme
+ * toggle and the user/logout affordance all moved to the Sidebar — this bar now
+ * carries exactly two things: the <lg hamburger and the breadcrumb.
  */
 import Link from "next/link";
+import type { RefObject } from "react";
 
-/** The 15px blue-gradient dot + 9px yellow dot branding primitive (C.1). */
-function DotBig() {
-  return <span aria-hidden className="h-[15px] w-[15px] rounded-full bg-[linear-gradient(135deg,brand,brand-hover)]" />;
-}
-function DotSmall() {
-  return <span aria-hidden className="h-[9px] w-[9px] rounded-full bg-accent" />;
-}
-
-export function Topbar({ active = false }: { active?: boolean }) {
+export function Topbar({
+  crumb,
+  onToggleSidebar,
+  menuOpen = false,
+  buttonRef,
+}: {
+  crumb: string;
+  onToggleSidebar: () => void;
+  menuOpen?: boolean;
+  /** AppShell focuses this on drawer close so focus returns to the hamburger. */
+  buttonRef?: RefObject<HTMLButtonElement | null>;
+}) {
   return (
-    <header className="sticky top-0 z-40 backdrop-blur-md bg-white/70 border-b border-divider">
-      <div className="mx-auto flex max-w-[1220px] items-center justify-between px-4">
-        {/* Brand */}
-        <Link
-          href="/"
-          aria-label="DIGMARK home"
-          className="flex items-center gap-2 px-2 py-3"
-        >
-          <span className="relative flex items-center">
-            <DotBig />
-            <span className="relative left-[10px] top-[-4px]">
-              <DotSmall />
-            </span>
-          </span>
-          <span className="font-sans text-[1.12rem] font-extrabold tracking-[0.05em] text-ink">
-            DIGMARK
-          </span>
-        </Link>
+    <header className="sticky top-0 z-30 flex h-[60px] shrink-0 items-center gap-3 border-b border-divider bg-surface px-4 sm:px-6 lg:px-8">
+      <button
+        type="button"
+        ref={buttonRef}
+        aria-label="Buka menu"
+        aria-expanded={menuOpen}
+        onClick={onToggleSidebar}
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[6px] text-muted hover:bg-sidebar-hover hover:text-ink lg:hidden"
+      >
+        <span aria-hidden>☰</span>
+      </button>
 
-        {/* Home pill */}
-        <Link
-          href="/"
-          title="Kembali ke homepage"
-          aria-current={active ? "page" : undefined}
-          className={
-            "dm-home inline-flex items-center gap-2 rounded-[12px] px-4 py-2 font-bold text-[0.86rem] " +
-            "transition-all duration-150 shadow-[var(--dm-shadow-xs)] hover:-translate-y-[1px] " +
-            "motion-reduce:hover:translate-y-0 " +
-            (active
-              ? "bg-[linear-gradient(135deg,brand,brand-hover)] text-white"
-              : "bg-surface border border-border text-brand-hover")
-          }
-        >
-          <span aria-hidden>🏠</span>
-          <span>Home</span>
+      <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2 text-[0.8125rem]">
+        <Link href="/" className="shrink-0 text-muted hover:text-brand">
+          Beranda
         </Link>
-      </div>
+        <span aria-hidden className="text-grid">
+          /
+        </span>
+        <span className="truncate font-semibold text-ink">{crumb}</span>
+      </nav>
     </header>
   );
 }

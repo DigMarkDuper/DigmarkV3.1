@@ -22,19 +22,27 @@ export interface HeroProps {
   worksAnchor?: string;
 }
 
-export function Hero({ closing, roas, moduleCount, live, loading = false, worksAnchor = "#workspace" }: HeroProps) {
+export function Hero({
+  closing,
+  roas,
+  moduleCount,
+  live,
+  loading = false,
+  worksAnchor = "#workspace",
+}: HeroProps) {
   return (
     <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_1fr]">
       {/* Left — HeroText */}
       <div>
-        <span className="inline-block rounded-full bg-gradient-to-br from-brand to-brand-hover px-3 py-1 text-[0.76rem] font-bold tracking-[0.05em] text-white">
+        <span className="inline-block rounded-full bg-brand px-3 py-1 text-[0.76rem] font-bold tracking-[0.05em] text-white">
           DIGMARK
         </span>
-        <h1 className="mt-4 text-[clamp(2.1rem,4.6vw,3.4rem)] font-extrabold leading-[1.06] tracking-[-0.02em] text-ink">
+        <h1 className="mt-3 text-[clamp(1.5rem,2.6vw,2rem)] font-bold leading-[1.2] tracking-[-0.01em] text-ink">
           Digital Marketing <span className="text-brand">Command Center</span>
         </h1>
-        <p className="mt-4 max-w-[54ch] text-[1.05rem] leading-[1.55] text-muted">
-          Kelola, pantau, dan analisis seluruh aktivitas digital marketing Duta Persada dalam satu dashboard.
+        <p className="mt-3 max-w-[68ch] text-[0.9375rem] leading-[1.5] text-muted">
+          Kelola, pantau, dan analisis seluruh aktivitas digital marketing Duta
+          Persada dalam satu dashboard.
         </p>
         <div className="mt-6 flex flex-wrap items-center gap-6">
           <Button variant="primary" href={worksAnchor}>
@@ -42,14 +50,22 @@ export function Hero({ closing, roas, moduleCount, live, loading = false, worksA
           </Button>
           <div className="flex items-center gap-3 text-[0.9rem] font-semibold text-muted">
             <span className="text-ink">{closing} siswa closing</span>
-            <span aria-hidden className="font-bold text-accent">•</span>
+            <span aria-hidden className="font-bold text-muted">
+              •
+            </span>
             <span className="text-ink">{roas} ROAS</span>
           </div>
         </div>
       </div>
 
       {/* Right — glass command-center panel */}
-      <HeroVisualPanel closing={closing} roas={roas} moduleCount={moduleCount} live={live} loading={loading} />
+      <HeroVisualPanel
+        closing={closing}
+        roas={roas}
+        moduleCount={moduleCount}
+        live={live}
+        loading={loading}
+      />
     </div>
   );
 }

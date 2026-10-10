@@ -392,12 +392,12 @@ export function InsightUploadCard({ onRefresh, initialExpanded, initialPreview, 
           setDragging(false);
           handleFiles(e.dataTransfer?.files);
         }}
-        className={`cursor-pointer block rounded-[16px] border-2 border-dashed px-6 py-10 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1 ${dragging ? "border-brand bg-brand/5" : "border-border/70 bg-white/40"}`}
+        className={`cursor-pointer block rounded-[8px] border-2 border-dashed px-6 py-10 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1 ${dragging ? "border-brand bg-brand/5" : "border-border/70 bg-white/40"}`}
       >
         <span className="text-[1.6rem]" aria-hidden>📥</span>
         <p className="mt-2 text-[0.95rem] font-semibold text-ink">{C.dropPrimary}</p>
         <p className="mt-2 text-[0.85rem] text-muted">{C.dropOr}</p>
-        <span className="mt-3 inline-flex items-center gap-2 rounded-[14px] bg-gradient-to-br from-brand to-brand-hover px-6 py-3 font-bold text-[0.92rem] text-white shadow-[var(--dm-shadow-cta)]">
+        <span className="mt-3 inline-flex items-center gap-2 rounded-[8px] bg-brand px-6 py-3 font-bold text-[0.92rem] text-white shadow-[var(--dm-shadow-cta)]">
           {C.dropBtn}
         </span>
         <p className="mt-3 text-[0.78rem] text-muted">{C.dropHint}</p>
@@ -433,7 +433,7 @@ export function InsightUploadCard({ onRefresh, initialExpanded, initialPreview, 
       {files.map((f) => (
         <span
           key={f.id}
-          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white/80 px-3 py-1 text-[0.82rem] text-ink"
+          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-[0.82rem] text-ink"
         >
           <span aria-hidden>📄</span>
           {chipLabel(f)}
@@ -456,7 +456,7 @@ export function InsightUploadCard({ onRefresh, initialExpanded, initialPreview, 
       ? (
         <p className="text-[0.9rem] text-ink">
           {C.detected}{" "}
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/80 border px-2.5 py-0.5 text-[0.82rem] font-semibold" style={{ borderColor: PLATFORM_COLOR[preview.platform] ?? "#8a8f98" }}>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-surface border px-2.5 py-0.5 text-[0.82rem] font-semibold" style={{ borderColor: PLATFORM_COLOR[preview.platform] ?? "#8a8f98" }}>
             <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: PLATFORM_COLOR[preview.platform] ?? "#8a8f98" }} />
             {preview.platform}
           </span>
@@ -494,7 +494,7 @@ export function InsightUploadCard({ onRefresh, initialExpanded, initialPreview, 
 
       {/* Blocking banner FIRST (nothing else matters when it blocks) */}
       {preview.blocking ? (
-        <div role="alert" className="rounded-[12px] border border-danger/30 bg-danger/10 p-3 text-[0.88rem] text-ink">
+        <div role="alert" className="rounded-[8px] border border-danger/30 bg-danger/10 p-3 text-[0.88rem] text-ink">
           <p className="font-bold text-danger">✕ {C.blocking}</p>
           <ul className="mt-1 space-y-1 text-[0.82rem] text-muted">
             {preview.blockReasons.map((r) => <li key={r}>• {r}</li>)}
@@ -504,7 +504,7 @@ export function InsightUploadCard({ onRefresh, initialExpanded, initialPreview, 
 
       {/* Validation checklist */}
       {preview.items.length ? (
-        <div className="rounded-[12px] border border-border bg-white/60 p-3">
+        <div className="rounded-[8px] border border-border bg-surface p-3">
           <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2">
             {preview.items.map((it) => (
               <li key={it.key} className={`text-[0.82rem] ${it.level === "ok" ? "text-success" : it.level === "warn" ? "text-warning" : "text-danger"}`}>
@@ -531,9 +531,9 @@ export function InsightUploadCard({ onRefresh, initialExpanded, initialPreview, 
             </p>
           ) : null}
           {/* F6: add overflow-x-auto so the min-w-[820px] table never clips on narrow shells. */}
-          <div className="mt-1 max-h-[320px] overflow-x-auto overflow-y-auto rounded-[16px] border border-border bg-surface">
+          <div className="mt-1 max-h-[320px] overflow-x-auto overflow-y-auto rounded-[8px] border border-border bg-surface">
             <table className="min-w-[820px] border-collapse text-left">
-              <thead className="sticky top-0 z-10 border-b border-divider bg-white/90">
+              <thead className="sticky top-0 z-10 border-b border-divider bg-surface">
                 <tr>
                   {TABLE_COLS.map((c) => (
                     <th key={c} className="px-3 py-2 text-[0.74rem] font-semibold uppercase tracking-[0.02em] text-muted">
@@ -544,7 +544,7 @@ export function InsightUploadCard({ onRefresh, initialExpanded, initialPreview, 
               </thead>
               <tbody>
                 {preview.rows.map((r, i) => (
-                  <tr key={`${r.TANGGAL}-${r.PLATFORM}-${i}`} className={i % 2 === 0 ? "bg-white/60" : "bg-white/80"}>
+                  <tr key={`${r.TANGGAL}-${r.PLATFORM}-${i}`} className={i % 2 === 0 ? "bg-surface" : "bg-surface"}>
                     {TABLE_COLS.map((c) => (
                       <td key={c} className={`px-3 py-2 text-[0.82rem] text-ink ${NUMERIC_COLS.has(c) ? "text-right tabular-nums" : ""} ${NUMERIC_COLS.has(c) && cellMissing(r, c) ? "text-muted" : ""}`}>
                         {cellValue(r, c)}
@@ -559,7 +559,7 @@ export function InsightUploadCard({ onRefresh, initialExpanded, initialPreview, 
       ) : null}
 
       {/* Duplicates choice + primary action band */}
-      <div className="rounded-[12px] border border-border bg-white/60 p-3">
+      <div className="rounded-[8px] border border-border bg-surface p-3">
         <p className="text-[0.92rem] font-semibold text-ink">
           Baris baru: <span className={preview.newCount > 0 ? "text-success" : "text-muted"}>{formatCount(preview.newCount)}</span>
           {" · "}Duplikasi potensial: <span className={preview.dupCount > 0 ? "text-warning" : "text-muted"}>{formatCount(preview.dupCount)}</span>
@@ -606,7 +606,7 @@ export function InsightUploadCard({ onRefresh, initialExpanded, initialPreview, 
   );
 
   const resultBody = result ? (
-    <div className={`mt-3 rounded-[12px] p-3 ${result.kind === "success" ? "border border-success/30 bg-success/10" : "border border-danger/30 bg-danger/10"}`}>
+    <div className={`mt-3 rounded-[8px] p-3 ${result.kind === "success" ? "border border-success/30 bg-success/10" : "border border-danger/30 bg-danger/10"}`}>
       {result.kind === "success" ? (
         <>
           <p className="text-[1rem] font-bold text-success">✓ {C.successHeading}</p>
@@ -649,7 +649,7 @@ export function InsightUploadCard({ onRefresh, initialExpanded, initialPreview, 
     <section
       aria-label={C.title}
       aria-busy={inFlight}
-      className="mb-6 mt-6 rounded-[16px] border border-border bg-surface p-5 shadow-[var(--dm-shadow-xs)] backdrop-blur-[8px]"
+      className="mb-6 mt-6 rounded-[8px] border border-border bg-surface p-5 shadow-[var(--dm-shadow-xs)]"
     >
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
@@ -660,7 +660,7 @@ export function InsightUploadCard({ onRefresh, initialExpanded, initialPreview, 
           type="button"
           aria-expanded={!collapsed}
           onClick={() => setCollapsed(!collapsed)}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-border text-muted hover:bg-white/70 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[6px] border border-border text-muted hover:bg-surface focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1"
           aria-label={collapsed ? "Expandir Upload Insight" : "Kolaps Upload Insight"}
         >
           <span aria-hidden>{collapsed ? "▸" : "▾"}</span>

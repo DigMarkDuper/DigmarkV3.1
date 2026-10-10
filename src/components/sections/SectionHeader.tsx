@@ -10,7 +10,7 @@ export interface SectionHeaderProps {
 export function SectionHeader({ title, subtitle, id }: SectionHeaderProps) {
   return (
     <section className="my-6" id={id}>
-      <h3 className="border-l-[4px] border-accent pl-3 text-[1.18rem] font-extrabold tracking-[-0.01em] text-ink">
+      <h3 className="border-l-[4px] border-accent pl-3 text-[1.125rem] font-extrabold tracking-[-0.01em] text-ink">
         {title}
       </h3>
       {subtitle ? <p className="ml-3 mt-0.5 text-[0.86rem] text-muted">{subtitle}</p> : null}

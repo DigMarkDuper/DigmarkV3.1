@@ -3,9 +3,9 @@
  * Overview / Command Center (UI_DESIGN_SPEC.md §D) — Phase D.
  *
  * Rendering order (fixed, matches V3 1_Overview.py):
- *   topbar → Hero(command-center w/ visual panel) → divider →
+ *   Hero(command-center w/ visual panel) → divider →
  *   "Explore Your Workspace" module grid → divider →
- *   "Quick Insight" stat band → footer.
+ *   "Quick Insight" stat band → footer (the app shell owns topbar/sidebar).
  *
  * Data-access (spec §D.2): the browser NEVER touches Sheets and NEVER computes
  * business metrics. All scalars arrive from the Phase C API:
@@ -23,9 +23,7 @@ import {
   formatRoas,
   formatRupiah,
 } from "@/components/ui-common";
-import { Topbar } from "@/components/layout/Topbar";
 import { Hero } from "@/components/layout/Hero";
-import { Footer } from "@/components/layout/Footer";
 import { Divider } from "@/components/ui/Divider";
 import { Button } from "@/components/ui/Button";
 import { WorkspaceSection } from "@/components/grid/WorkspaceSection";
@@ -61,7 +59,7 @@ function isAuthFailure(f?: ApiFailure): boolean {
 function DriftBanner({ drift }: { drift: boolean }) {
   if (!drift) return null;
   return (
-    <div role="status" className="mx-auto mt-3 flex max-w-[1180px] items-start gap-2 rounded-[12px] border border-warning/40 bg-warning/10 px-4 py-2 text-[0.86rem] font-semibold text-warning">
+    <div role="status" className="mx-auto mt-3 flex max-w-[1180px] items-start gap-2 rounded-[8px] border border-warning/40 bg-warning/10 px-4 py-2 text-[0.86rem] font-semibold text-warning">
       <span aria-hidden>⚠</span>
       <span>Několiko tab telah mengubah struktur — data mungkin stale.</span>
     </div>
@@ -71,8 +69,8 @@ function DriftBanner({ drift }: { drift: boolean }) {
 /** Full-page glass gate shown while the session is unauthenticated. */
 function AuthGate() {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/60 backdrop-blur-md px-4">
-      <div className="w-full max-w-md rounded-[20px] border border-border bg-surface p-8 shadow-[var(--dm-shadow)]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface px-4">
+      <div className="w-full max-w-md rounded-[10px] border border-border bg-surface p-8 shadow-[var(--dm-shadow)]">
         <div className="text-[1.35rem] font-extrabold text-ink">Sign in to continue</div>
         <p className="mt-2 text-[0.95rem] leading-[1.5] text-muted">
           DIGMARK runs on live data from Google Sheets. Sign in with your team credentials to open the Command Center.
@@ -135,13 +133,15 @@ export default function Overview() {
   ];
 
   return (
-    <div className="mx-auto max-w-[1220px] px-4">
-      <Topbar />
-
+    /* The shell (sidebar + topbar + gutter + footer) is owned by
+       app/(workspaces)/layout.tsx, so this page renders content only. The
+       old <div class="mx-auto max-w-[1220px] px-4"> wrapper and the nested
+       max-w-[1180px] main collapse into one max-w-[1220px] content column. */
+    <>
       {/* Drift banner (meta resolves async; hidden until ready). */}
       {meta.status === "ready" && meta.data ? <DriftBanner drift={meta.data.drift} /> : null}
 
-      <main className="mx-auto max-w-[1180px]">
+      <main className="mx-auto w-full min-w-0 max-w-[1220px] px-4 sm:px-6 lg:px-8">
         {/* Hero — always renders brand first; stats degrade per spec D.2. */}
         <Hero
           closing={closingStr}
@@ -201,7 +201,7 @@ export default function Overview() {
             {waAdmin.status === "error" ? (
               <ErrorState failure={waAdmin.error!} onRetry={waAdmin.refetch} />
             ) : waAdmin.status === "loading" ? (
-              <div className="rounded-[20px] border border-border bg-surface p-4 shadow-[var(--dm-shadow)]">
+              <div className="rounded-[10px] border border-border bg-surface p-4 shadow-[var(--dm-shadow)]">
                 <LoadingState variant="card" />
               </div>
             ) : waAdmin.status === "empty" || !waAdmin.data?.rows.length ? (
@@ -212,19 +212,18 @@ export default function Overview() {
           </div>
         </div>
 
-        <Footer />
       </main>
 
       {/* Auth gate: full-page spinner while resolving; prompt card when 401/403. */}
       {auth.status === "loading" || (!authed && !gateOpen) ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/40 backdrop-blur-md">
-          <div className="w-72 rounded-[20px] border border-border bg-surface p-6 shadow-[var(--dm-shadow)]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/40">
+          <div className="w-72 rounded-[10px] border border-border bg-surface p-6 shadow-[var(--dm-shadow)]">
             <LoadingState variant="card" />
           </div>
         </div>
       ) : gateOpen ? (
         <AuthGate />
       ) : null}
-    </div>
+    </>
   );
 }

@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { postJson, type ApiFailure } from "@/lib/api-client";
-import { Topbar } from "@/components/layout/Topbar";
+import { Brand } from "@/components/layout/Brand";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/Field";
@@ -39,9 +39,14 @@ export default function Login() {
 
   return (
     <div className="mx-auto max-w-[1220px] px-4">
-      <Topbar />
-      <main className="mx-auto mt-16 max-w-[1180px]">
-        <div className="mx-auto w-full max-w-md rounded-[20px] border border-border bg-surface p-8 shadow-[var(--dm-shadow)]">
+          {/* /login sits outside the (workspaces) route group, so it has no sidebar
+              and no in-shell topbar. The brand mark moved into the sidebar, so a
+              minimal centered header carries it here. */}
+          <div className="mb-8 flex justify-center pt-8">
+            <Brand />
+          </div>
+          <main className="mx-auto mt-2 max-w-[1180px]">
+        <div className="mx-auto w-full max-w-md rounded-[10px] border border-border bg-surface p-8 shadow-[var(--dm-shadow)]">
           <h1 className="text-[1.35rem] font-extrabold text-ink">Sign in</h1>
           <p className="mt-1 text-[0.9rem] text-muted">Use your DIGMARK team credentials to open the Command Center.</p>
 
@@ -56,7 +61,7 @@ export default function Login() {
             <TextInput id="password" name="password" label="Password" type="password" value={password} onInput={setPassword} autoComplete="current-password" required />
 
             {error ? (
-              <div role="alert" className="rounded-[10px] border border-danger/40 bg-danger/10 px-3 py-2 text-[0.86rem] text-danger">
+              <div role="alert" className="rounded-[6px] border border-danger/40 bg-danger/10 px-3 py-2 text-[0.86rem] text-danger">
                 {error.code === "AUTH_FAILED" ? "Invalid username or password." : "Unable to sign in — please try again."}
               </div>
             ) : null}

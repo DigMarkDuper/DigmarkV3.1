@@ -14,16 +14,18 @@ export interface ModuleHeroProps {
 export function ModuleHero({ icon, title, desc }: ModuleHeroProps) {
   return (
     <div className="pb-5">
-      <span className="inline-block rounded-full bg-gradient-to-br from-brand to-brand-hover px-3 py-1 text-[0.76rem] font-bold tracking-[0.05em] text-white">
+      <span className="inline-block rounded-full bg-brand px-3 py-1 text-[0.76rem] font-bold tracking-[0.05em] text-white">
         MODULE
       </span>
-      <div className="mt-5 flex h-[54px] w-[54px] items-center justify-center rounded-2xl bg-gradient-to-br from-brand/10 to-accent/28 text-[1.6rem]">
+      <div className="mt-4 flex h-[44px] w-[44px] items-center justify-center rounded-[8px] bg-brand text-[1.25rem]">
         {icon}
       </div>
-      <h1 className="mt-4 text-[clamp(1.7rem,3.4vw,2.5rem)] font-extrabold leading-[1.1] tracking-[-0.02em] text-ink">
+      <h1 className="mt-3 text-[clamp(1.35rem,2.2vw,1.75rem)] font-bold leading-[1.25] tracking-[-0.01em] text-ink">
         {title}
       </h1>
-      <p className="mt-3 max-w-[62ch] text-[1rem] leading-[1.6] text-muted">{desc}</p>
+      <p className="mt-2 max-w-[76ch] text-[0.9rem] leading-[1.5] text-muted">
+        {desc}
+      </p>
     </div>
   );
 }

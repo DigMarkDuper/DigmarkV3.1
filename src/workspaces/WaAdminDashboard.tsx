@@ -283,8 +283,8 @@ function OperationalTable({
         }}
         className="fixed inset-0 z-[80] flex flex-col overflow-hidden"
       >
-        <div className="absolute inset-0 bg-ink" onClick={() => setExpanded(false)} aria-hidden />
-        <div className="relative z-[1] flex flex-col flex-1 overflow-hidden rounded-[10px] border border-border bg-surface shadow-[var(--dm-shadow)]">
+        <div className="absolute inset-0 bg-ink z-0" onClick={() => setExpanded(false)} aria-hidden />
+        <div className="relative z-[90] flex flex-col flex-1 overflow-hidden rounded-[10px] border border-border bg-surface shadow-[var(--dm-shadow)]">
           <div className="flex flex-wrap items-center gap-3 border-b border-divider px-5 py-3.5">
             <span aria-hidden className="flex h-8 w-8 items-center justify-center rounded-[6px] text-[1.05rem]" style={{ backgroundColor: `${color}1F` }}>
               {icon}
@@ -1280,8 +1280,8 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
           }}
           className="fixed inset-0 z-[80] flex flex-col overflow-hidden"
         >
-          <div className="absolute inset-0 bg-ink" onClick={() => setExpanded(false)} aria-hidden />
-          <div className="relative z-[1] flex flex-col flex-1 overflow-hidden rounded-[10px] border border-border bg-surface shadow-[var(--dm-shadow)]">
+          <div className="absolute inset-0 bg-ink z-0" onClick={() => setExpanded(false)} aria-hidden />
+          <div className="relative z-[90] flex flex-col flex-1 overflow-hidden rounded-[10px] border border-border bg-surface shadow-[var(--dm-shadow)]">
             <div className="flex flex-wrap items-center gap-3 border-b border-divider px-5 py-3.5">
               <h3 className="text-[1.15rem] font-extrabold tracking-[-0.01em] text-ink">Pendaftar Terbaru</h3>
               <span className="rounded-full bg-brand/10 px-2.5 py-0.5 text-[0.8rem] font-bold text-brand-hover">{recent.length}</span>
