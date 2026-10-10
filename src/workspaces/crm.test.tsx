@@ -9,6 +9,10 @@ import {
   mekariCsv,
   mekariFilename,
   TREATMENT_OPTIONS,
+  TREATMENT_CHIPS,
+  computeTreatmentStatus,
+  validatePhones,
+  buildPhoneListText,
 } from "@/workspaces/crm";
 import {
   syncController,
@@ -50,13 +54,13 @@ function crmRow(partial: Partial<Row>): Row {
 }
 
 const FIXTURE: Row[] = [
-  crmRow({ "No": 1, "No Hp": "6281", Nama: "Ani", Domisili: "Bantul", "Mekari Tag (Status Terakhir)": "HOT", "Treatment 1": "x", "Treatment 2": "" }),
-  crmRow({ "No": 2, "No Hp": "6282", Nama: "Budi", Domisili: "Sleman", "Mekari Tag (Status Terakhir)": "WARM", "Treatment 1": "", "Treatment 2": "y", Status: "Closing" }),
-  crmRow({ "No": 3, "No Hp": "6283", Nama: "Citra", Domisili: "Bantul", "Mekari Tag (Status Terakhir)": "HOT", "Treatment 1": "", "Treatment 2": "" }),
-  crmRow({ "No": 4, "No Hp": "6284", Nama: "Dodi", Domisili: "Kulon", "Mekari Tag (Status Terakhir)": "", "Treatment 1": "", "Treatment 2": "" }),
+  crmRow({ "No": 1, "No Hp": "6281", Nama: "Ani", Domisili: "Bantul", "Mekari Tag (Status Terakhir)": "HOT", "Kategori": "Biaya", "Treatment 1": "x", "Treatment 2": "" }),
+  crmRow({ "No": 2, "No Hp": "6282", Nama: "Budi", Domisili: "Sleman", "Mekari Tag (Status Terakhir)": "WARM", "Kategori": "Pendaftaran", "Treatment 1": "", "Treatment 2": "y", Status: "Closing" }),
+  crmRow({ "No": 3, "No Hp": "6283", Nama: "Citra", Domisili: "Bantul", "Mekari Tag (Status Terakhir)": "HOT", "Kategori": "Biaya", "Treatment 1": "", "Treatment 2": "" }),
+  crmRow({ "No": 4, "No Hp": "6284", Nama: "Dodi", Domisili: "Kulon", "Mekari Tag (Status Terakhir)": "", "Kategori": "Pendaftaran", "Treatment 1": "", "Treatment 2": "" }),
 ];
 
-const NO_FILTER = { search: "", mekari: [] as string[], domisili: [] as string[], treatment: "Semua" };
+const NO_FILTER = { search: "", mekari: [] as string[], domisili: [] as string[], kategori: [] as string[], treatment: "Semua" };
 
 /* --------------------------------------------------------------------------- */
 
@@ -105,6 +109,14 @@ describe("CRM filters, options & metrics (V3 mask parity)", () => {
     const o = crmFilterOptions(FIXTURE);
     expect(o.mekari).toEqual(["HOT", "WARM"]);
     expect(o.domisili).toEqual(["Bantul", "Kulon", "Sleman"]);
+    expect(o.kategori).toEqual(["Biaya", "Pendaftaran"]);
+  });
+
+  it("Kategori multiselect filters", () => {
+    expect(filterCrmRows(FIXTURE, { ...NO_FILTER, kategori: ["Biaya"] })).toHaveLength(2);
+    expect(filterCrmRows(FIXTURE, { ...NO_FILTER, kategori: ["Pendaftaran"] })).toHaveLength(2);
+    // Empty kategori = no filter applied.
+    expect(filterCrmRows(FIXTURE, { ...NO_FILTER, kategori: [] })).toHaveLength(4);
   });
 
   it("search matches Nama case-insensitively OR No Hp substring", () => {
@@ -125,11 +137,48 @@ describe("CRM filters, options & metrics (V3 mask parity)", () => {
     expect(filterCrmRows(FIXTURE, { ...NO_FILTER, mekari: ["HOT"], domisili: ["Bantul"] })).toHaveLength(2);
   });
 
-  it("treatment options gate Sudah T1 / Sudah T2 / Belum", () => {
-    expect(TREATMENT_OPTIONS).toEqual(["Semua", "Sudah T1", "Sudah T2", "Belum"]);
+  it("treatment options gate Sudah T1 / Sudah T2 / Belum Treated / T1+T2 Lengkap", () => {
+    expect(TREATMENT_OPTIONS).toEqual(["Semua", "Belum Treated", "Sudah T1", "Sudah T2", "T1+T2 Lengkap"]);
     expect(filterCrmRows(FIXTURE, { ...NO_FILTER, treatment: "Sudah T1" })).toHaveLength(1);
     expect(filterCrmRows(FIXTURE, { ...NO_FILTER, treatment: "Sudah T2" })).toHaveLength(1);
-    expect(filterCrmRows(FIXTURE, { ...NO_FILTER, treatment: "Belum" })).toHaveLength(2);
+    expect(filterCrmRows(FIXTURE, { ...NO_FILTER, treatment: "Belum Treated" })).toHaveLength(2);
+    expect(filterCrmRows(FIXTURE, { ...NO_FILTER, treatment: "T1+T2 Lengkap" })).toHaveLength(0);
+  });
+
+  it("computeTreatmentStatus derives correct badge from Treatment 1/2", () => {
+    const both = crmRow({ "Treatment 1": "Sesi 1", "Treatment 2": "Sesi 2" });
+    const t1only = crmRow({ "Treatment 1": "Sesi 1", "Treatment 2": "" });
+    const t2only = crmRow({ "Treatment 1": "", "Treatment 2": "Sesi 2" });
+    const empty = crmRow({ "Treatment 1": "", "Treatment 2": "" });
+    expect(computeTreatmentStatus(both)).toEqual({ variant: "both", label: "T1+T2 selesai" });
+    expect(computeTreatmentStatus(t1only)).toEqual({ variant: "t1-only", label: "T1 selesai" });
+    expect(computeTreatmentStatus(t2only)).toEqual({ variant: "t2-only", label: "T2 saja" });
+    expect(computeTreatmentStatus(empty)).toEqual({ variant: "empty", label: "Belum treated" });
+  });
+
+  it("validatePhones normalizes, dedups, counts issues", () => {
+    const r = validatePhones([
+      crmRow({ "No Hp": "0812-3456" }),   // → 628123456
+      crmRow({ "No Hp": "628123456" }),    // dup of above
+      crmRow({ "No Hp": "0877" }),         // → 62877
+      crmRow({ "No Hp": "" }),             // missing
+    ]);
+    expect(r.total).toBe(4);
+    expect(r.validAll).toBe(3);
+    expect(r.validUnique).toBe(2);
+    expect(r.duplicatesRemoved).toBe(1);
+    expect(r.missingCount).toBe(1);
+    expect(r.phones).toContain("628123456");
+    expect(r.phones).toContain("62877");
+  });
+
+  it("buildPhoneListText returns newline-separated normalized phones", () => {
+    const txt = buildPhoneListText([
+      crmRow({ "No Hp": "0890-123" }),
+      crmRow({ "No Hp": "62890123" }), // dup
+      crmRow({ "No Hp": "" }),
+    ]);
+    expect(txt).toBe("62890123");
   });
 
   it("metrics: hasilFilter / totalDb / sudahT1 / sudahT2", () => {
@@ -304,7 +353,11 @@ describe("CrmDashboard (react-dom/server, no browser)", () => {
     expect(html).toContain("Total DB");
     expect(html).toContain("Sudah T1");
     expect(html).toContain("Sudah T2");
-    expect(html).toContain("Unduh hasil filter (CSV Mekari)");
+    // New export buttons.
+    expect(html).toContain("Export Filtered");
+    expect(html).toContain("Export Selected");
+    expect(html).toContain("Copy Phone Numbers");
+    expect(html).toContain("Validasi Nomor HP");
     expect(html).toContain("Refresh Data");
     // Treatment options rendered.
     for (const o of TREATMENT_OPTIONS) expect(html).toContain(o);
@@ -314,7 +367,7 @@ describe("CrmDashboard (react-dom/server, no browser)", () => {
     const html = renderToStaticMarkup(<CrmDashboard rows={[]} columns={COLS} />);
     expect(html).toContain("Database CRM kosong.");
     expect(html).not.toContain("Filter &amp; Cari");
-    expect(html).not.toContain("Unduh hasil filter");
+    expect(html).not.toContain("Export Filtered");
     expect(html).toContain("Sync &amp; Import"); // sync/import still shown (V3 order)
     expect(html).toContain("Refresh Data");
   });

@@ -29,11 +29,46 @@ import type { Row } from "@/server/adapter/source";
 import { normalizePhone } from "@/server/utils/helpers";
 import { parseFileToAoa } from "@/workspaces/ads";
 
+// Re-exports for consumer convenience.
+export { normalizePhone };
+
 /** V3 _import_row canonical file columns. */
 export const IMPORT_COLUMNS = ["full_name", "customer_name", "phone_number", "company"] as const;
 
 /** V3 Treatment select options. */
-export const TREATMENT_OPTIONS = ["Semua", "Sudah T1", "Sudah T2", "Belum"];
+export const TREATMENT_OPTIONS = [
+  "Semua",
+  "Belum Treated",
+  "Sudah T1",
+  "Sudah T2",
+  "T1+T2 Lengkap",
+];
+
+/** Treatment quick-filter labels for the chip bar. */
+export const TREATMENT_CHIPS = [
+  { label: "Semua", filter: "Semua" },
+  { label: "⚠️ Belum Treated", filter: "Belum" },
+  { label: "🟡 Sudah T1", filter: "Sudah T1" },
+  { label: "🟢 Sudah T2", filter: "Sudah T2" },
+  { label: "✅ T1+T2 Lengkap", filter: "T1+T2 Lengkap" },
+];
+
+/** Derived treatment status badge for each row (used in the simplified table). */
+export type TreatmentStatusBadge =
+  | { variant: "empty"; label: "Belum treated" }
+  | { variant: "t1-only"; label: "T1 selesai" }
+  | { variant: "t2-only"; label: "T2 saja" }
+  | { variant: "both"; label: "T1+T2 selesai" };
+
+/** Compute Latest Treatment Status from Treatment 1 / Treatment 2 fields. */
+export function computeTreatmentStatus(row: Row): TreatmentStatusBadge {
+  const t1 = Object.prototype.hasOwnProperty.call(row, "Treatment 1") ? str(row["Treatment 1"]) : "";
+  const t2 = Object.prototype.hasOwnProperty.call(row, "Treatment 2") ? str(row["Treatment 2"]) : "";
+  if (t1 === "" && t2 === "") return { variant: "empty", label: "Belum treated" };
+  if (t1 !== "" && t2 !== "") return { variant: "both", label: "T1+T2 selesai" };
+  if (t1 !== "" && t2 === "") return { variant: "t1-only", label: "T1 selesai" };
+  return { variant: "t2-only", label: "T2 saja" };
+}
 
 function str(v: unknown): string {
   return v === null || v === undefined ? "" : String(v);
@@ -92,27 +127,33 @@ export interface CrmFilters {
   mekari: string[];
   /** Selected Domisili values (empty = no filter). */
   domisili: string[];
+  /** Selected Kategori values (empty = no filter). */
+  kategori: string[];
   /** TREATMENT_OPTIONS value — "Semua" disables. */
   treatment: string;
 }
 
-/** Distinct non-null, non-empty sorted values for the two multiselects. */
-export function crmFilterOptions(rows: Row[]): { mekari: string[]; domisili: string[] } {
+/** Distinct non-null, non-empty sorted values for the three multiselects. */
+export function crmFilterOptions(rows: Row[]): { mekari: string[]; domisili: string[]; kategori: string[] } {
   const mekari = new Set<string>();
   const domisili = new Set<string>();
+  const kategori = new Set<string>();
   for (const r of rows) {
     const m = r["Mekari Tag (Status Terakhir)"];
     if (m !== null && m !== undefined && str(m) !== "") mekari.add(str(m));
     const d = r["Domisili"];
     if (d !== null && d !== undefined && str(d) !== "") domisili.add(str(d));
+    const k = r["Kategori"];
+    if (k !== null && k !== undefined && str(k) !== "") kategori.add(str(k));
   }
-  return { mekari: [...mekari].sort(), domisili: [...domisili].sort() };
+  return { mekari: [...mekari].sort(), domisili: [...domisili].sort(), kategori: [...kategori].sort() };
 }
 
 /**
  * Apply V3's filter mask. search matches Nama (case-insensitive) OR No Hp
  * (substring) — only when either column exists. Treatment gating follows V3 and
  * always guards on column presence (Treatment 1 required; Treatment 2 guarded).
+ * Added: Kategori multiselect filter + "T1+T2 Lengkap" treatment option.
  */
 export function filterCrmRows(rows: Row[], f: CrmFilters): Row[] {
   const q = f.search.trim();
@@ -133,12 +174,17 @@ export function filterCrmRows(rows: Row[], f: CrmFilters): Row[] {
     if (f.domisili.length && !f.domisili.includes(str(row["Domisili"]))) {
       return false;
     }
+    if (f.kategori.length && !f.kategori.includes(str(row["Kategori"]))) {
+      return false;
+    }
     if ("Treatment 1" in row && f.treatment !== "Semua") {
       const t1 = str(row["Treatment 1"]);
       const t2 = str(row["Treatment 2"]);
       if (f.treatment === "Sudah T1" && t1 === "") return false;
       if (f.treatment === "Sudah T2" && t2 === "") return false;
       if (f.treatment === "Belum" && !(t1 === "" && t2 === "")) return false;
+      if (f.treatment === "T1+T2 Lengkap" && !(t1 !== "" && t2 !== "")) return false;
+      if (f.treatment === "Belum Treated" && !(t1 === "" && t2 === "")) return false;
     }
     return true;
   });
@@ -194,4 +240,73 @@ export function mekariFilename(now: Date = new Date()): string {
   const m = String(now.getMonth() + 1).padStart(2, "0");
   const d = String(now.getDate()).padStart(2, "0");
   return `mekari_contacts_${y}${m}${d}.csv`;
+}
+
+/* ---------------------------------------------------------------------------
+ * Phone number validation, dedup, and copy helpers — for WhatsApp blasting.
+ * ------------------------------------------------------------------------ */
+
+/** Result of phone-number validation on a set of rows. */
+export interface PhoneValidationResult {
+  /** Total rows counted. */
+  total: number;
+  /** Normalized 62-prefixed numbers that are valid. Deduplicated count. */
+  validUnique: number;
+  /** Valid numbers before dedup (for duplicate detection display). */
+  validAll: number;
+  /** Duplicate counts removed. */
+  duplicatesRemoved: number;
+  /** Rows with empty/no phone number. */
+  missingCount: number;
+  /** List of unique normalized phone strings (safe to use). */
+  phones: string[];
+}
+
+/** Validate phone numbers from rows: normalize, dedup, count issues. */
+export function validatePhones(rows: Row[]): PhoneValidationResult {
+  const allNormalized: string[] = [];
+  for (const row of rows) {
+    const raw = str(row["No Hp"]);
+    if (raw === "" || raw.trim() === "") continue;
+    const normalized = normalizePhone(raw);
+    if (normalized !== "") allNormalized.push(normalized);
+  }
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const p of allNormalized) {
+    if (!seen.has(p)) {
+      seen.add(p);
+      unique.push(p);
+    }
+  }
+  return {
+    total: rows.length,
+    validAll: allNormalized.length,
+    validUnique: unique.length,
+    duplicatesRemoved: allNormalized.length - unique.length,
+    missingCount: rows.length - allNormalized.length,
+    phones: unique,
+  };
+}
+
+/** Format a normalized 62-phone for display (copy-friendly). */
+function formatPhoneForDisplay(phone: string): string {
+  // Already starts with 62 from normalizePhone
+  if (phone.startsWith("628")) {
+    // Indonesian mobile: strip leading 62, insert space after country code
+    const rest = phone.slice(2);
+    return `+${phone} (${rest})`;
+  }
+  return `+${phone}`;
+}
+
+/** Build plain-text phone list (newline-separated) for clipboard copy. */
+export function buildPhoneListText(rows: Row[], validated?: PhoneValidationResult): string {
+  const result = validated ?? validatePhones(rows);
+  return result.phones.join("\n");
+}
+
+/** CSV export of selected/filtered rows (Mekari format). For bulk selection. */
+export function mekariCsvSelected(selectedRows: Row[]): string {
+  return mekariCsv(selectedRows);
 }

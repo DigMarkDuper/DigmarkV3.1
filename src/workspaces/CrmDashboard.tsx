@@ -17,11 +17,9 @@
  * V3: empty_state + footer and stop (no filters/table/export).
  */
 "use client";
-import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { useMemo, useState, useCallback, type ChangeEvent, type FormEvent } from "react";
 import type { Row } from "@/server/adapter/source";
-import { columnsFor } from "@/server/adapter/schema";
 import { postJson } from "@/lib/api-client";
-import { DataTable } from "@/components/grid/DataTable";
 import { Divider } from "@/components/ui/Divider";
 import { Button } from "@/components/ui/Button";
 import { SectionHeader } from "@/components/sections/SectionHeader";
@@ -29,7 +27,7 @@ import { MetricRow } from "@/components/metrics/MetricRow";
 import { MetricCard } from "@/components/metrics/MetricCard";
 import { ModuleHero } from "@/components/layout/ModuleHero";
 import { EmptyState } from "@/components/sections/EmptyState";
-import { TextInput, Select } from "@/components/ui/Field";
+import { TextInput } from "@/components/ui/Field";
 import {
   buildCrmImportRows,
   crmFilterOptions,
@@ -40,7 +38,17 @@ import {
   parseFileToAoa,
   TREATMENT_OPTIONS,
   IMPORT_COLUMNS,
+  computeTreatmentStatus,
+  TREATMENT_CHIPS,
+  validatePhones,
+  buildPhoneListText,
+  type TreatmentStatusBadge,
+  normalizePhone,
 } from "@/workspaces/crm";
+
+/* ---------------------------------------------------------------------------
+ * Props
+ * ------------------------------------------------------------------------ */
 
 export interface CrmDashboardProps {
   rows: Row[];
@@ -97,14 +105,60 @@ function MultiSelect({
   );
 }
 
-export function CrmDashboard({ rows, columns, onRefresh }: CrmDashboardProps) {
-  const declared = useMemo(() => columns ?? columnsFor("crm"), [columns]);
+/** Chip button for quick-treatment-filtering. */
+function TreatmentChip({ label, active, onClick }: {
+  label: string; active: boolean; onClick: () => void;
+}) {
+  const base = "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[0.78rem] font-semibold transition-all cursor-pointer select-none";
+  const variant = active
+    ? "bg-brand text-white shadow-[var(--dm-shadow-cta)] ring-2 ring-brand/30"
+    : "bg-surface border border-border text-muted hover:border-brand/50 hover:text-ink";
+  return <button type="button" onClick={onClick} className={`${base} ${variant}`}>{label}</button>;
+}
 
-  // Filter/search state.
+/** Badge component for treatment status in table cells. */
+function TreatmentBadge({ badge }: { badge: TreatmentStatusBadge }) {
+  const styles: Record<string, string> = {
+    empty: "bg-red-50 text-red-700 border-red-200",
+    "t1-only": "bg-yellow-50 text-yellow-700 border-yellow-200",
+    t2only: "bg-amber-50 text-amber-700 border-amber-200",
+    both: "bg-green-50 text-green-700 border-green-200",
+  };
+  const key = badge.variant === "t2-only" ? "t2only" : badge.variant;
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[0.72rem] font-semibold ${styles[key] ?? styles.empty}`}>
+      {badge.label}
+    </span>
+  );
+}
+
+/** Detail cell for expanded row content. */
+function DetailCell({ label, value, fullCol = false }: {
+  label: string; value: unknown; fullCol?: boolean;
+}) {
+  const display = value === null || value === undefined ? String(value) : String(value);
+  const isEmpty = display.trim() === "" || display.toLowerCase() === "nan";
+  return (
+    <div className={`rounded-[6px] border border-border bg-surface-input p-2 ${fullCol ? "col-span-3" : ""}`}>
+      <span className="block text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-muted">{label}</span>
+      <span className={`block text-[0.8125rem] ${isEmpty ? "text-muted/60 italic" : "text-ink"}`}>
+        {isEmpty ? "—" : display}
+      </span>
+    </div>
+  );
+}
+
+export function CrmDashboard({ rows, columns, onRefresh }: CrmDashboardProps) {
+  // --- Filters ---
   const [search, setSearch] = useState("");
   const [mekariSel, setMekariSel] = useState<string[]>([]);
   const [domisiliSel, setDomisiliSel] = useState<string[]>([]);
+  const [kategoriSel, setKategoriSel] = useState<string[]>([]);
   const [treatment, setTreatment] = useState("Semua");
+
+  // --- Bulk selection & expand ---
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [expandedRowIdx, setExpandedRowIdx] = useState<number | null>(null);
 
   // Sync state.
   const [syncing, setSyncing] = useState(false);
@@ -119,15 +173,37 @@ export function CrmDashboard({ rows, columns, onRefresh }: CrmDashboardProps) {
 
   const options = useMemo(() => crmFilterOptions(rows), [rows]);
   const filtered = useMemo(
-    () => filterCrmRows(rows, { search, mekari: mekariSel, domisili: domisiliSel, treatment }),
-    [rows, search, mekariSel, domisiliSel, treatment],
+    () => filterCrmRows(rows, { search, mekari: mekariSel, domisili: domisiliSel, kategori: kategoriSel, treatment }),
+    [rows, search, mekariSel, domisiliSel, kategoriSel, treatment],
   );
   const metrics = useMemo(() => crmMetrics(filtered, rows), [filtered, rows]);
+  const phoneValidation = useMemo(() => validatePhones(filtered), [filtered]);
 
   const toggleMekari = (v: string) =>
     setMekariSel((s) => (s.includes(v) ? s.filter((x) => x !== v) : [...s, v]));
   const toggleDomisili = (v: string) =>
     setDomisiliSel((s) => (s.includes(v) ? s.filter((x) => x !== v) : [...s, v]));
+  const toggleKategori = (v: string) =>
+    setKategoriSel((s) => (s.includes(v) ? s.filter((x) => x !== v) : [...s, v]));
+
+  /* --- Bulk selection helpers --- */
+  const anySelected = selectedIds.size > 0;
+  const allFilteredSelected = filtered.length > 0 && selectedIds.size === filtered.length;
+  const selectedRows = useMemo(
+    () => filtered.filter((_r, idx) => selectedIds.has(idx)),
+    [filtered, selectedIds],
+  );
+
+  const toggleRowSelection = useCallback((idx: number) => {
+    setSelectedIds((prev) => { const n = new Set(prev); n.has(idx) ? n.delete(idx) : n.add(idx); return n; });
+  }, []);
+
+  const selectAllFiltered = useCallback(() => {
+    if (selectedIds.size === filtered.length) setSelectedIds(new Set());
+    else { const a = new Set<number>(); for (let i = 0; i < filtered.length; i++) a.add(i); setSelectedIds(a); }
+  }, [filtered.length, selectedIds.size]);
+
+  const deselectAll = useCallback(() => setSelectedIds(new Set()), []);
 
   const onFile = (e: ChangeEvent<HTMLInputElement>) => {
     setFile(e.target.files?.[0] ?? null);
@@ -192,17 +268,35 @@ export function CrmDashboard({ rows, columns, onRefresh }: CrmDashboardProps) {
     }
   };
 
-  const downloadMekari = () => {
+  /* --- Export helpers --- */
+  const downloadSelected = () => {
+    if (!selectedRows.length) return;
+    const csv = mekariCsv(selectedRows);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = mekariFilename();
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  };
+
+  const downloadFiltered = () => {
     const csv = mekariCsv(filtered);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
-    a.download = mekariFilename();
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    a.href = url; a.download = mekariFilename();
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  };
+
+  const copyPhoneNumbers = async () => {
+    const txt = buildPhoneListText(anySelected ? selectedRows : filtered);
+    try {
+      await navigator.clipboard.writeText(txt);
+      setSyncOk(`📋 ${phoneValidation.validUnique} nomor berhasil disalin ke papan klip.`);
+      setTimeout(() => setSyncOk(null), 3000);
+    } catch { setSyncErr("Gagal menyalin nomor."); }
   };
 
   const hasData = rows.length > 0;
@@ -309,64 +403,176 @@ export function CrmDashboard({ rows, columns, onRefresh }: CrmDashboardProps) {
         ) : (
           <>
             <SectionHeader title="Filter & Cari" subtitle="Cari dan filter database lead." />
-            <div className="grid gap-5 md:grid-cols-2">
-              <TextInput
-                id="crm-search"
-                label="Cari nama / nomor HP"
-                placeholder="Ketik nama atau nomor HP..."
-                value={search}
-                onInput={setSearch}
-              />
-              <Select
-                id="crm-treatment"
-                label="Treatment"
-                value={treatment}
-                options={TREATMENT_OPTIONS.map((o) => ({ value: o, label: o }))}
-                onSelect={setTreatment}
-              />
+            {/* Search */}
+            <TextInput id="crm-search" label="Cari nama / nomor HP" placeholder="Ketik nama atau nomor HP..." value={search} onInput={setSearch} />
+            {/* Treatment quick-chips */}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {TREATMENT_CHIPS.map(chip => (
+                <TreatmentChip key={chip.filter} label={chip.label} active={treatment === chip.filter} onClick={() => setTreatment(chip.filter)} />
+              ))}
             </div>
-            <div className="mt-4 grid gap-5 md:grid-cols-2">
-              <MultiSelect
-                label="Mekari Tag"
-                options={options.mekari}
-                selected={mekariSel}
-                onToggle={toggleMekari}
-              />
-              <MultiSelect
-                label="Domisili"
-                options={options.domisili}
-                selected={domisiliSel}
-                onToggle={toggleDomisili}
-              />
+            {/* Kategori + Mekari Tag + Domisili (3-col grid) */}
+            <div className="mt-4 grid gap-5 md:grid-cols-3">
+              <MultiSelect label="Kategori" options={options.kategori} selected={kategoriSel} onToggle={toggleKategori} />
+              <MultiSelect label="Mekari Tag" options={options.mekari} selected={mekariSel} onToggle={toggleMekari} />
+              <MultiSelect label="Domisili" options={options.domisili} selected={domisiliSel} onToggle={toggleDomisili} />
             </div>
 
             <div className="mt-6">
               <MetricRow>
                 <MetricCard icon="🎯" label="Hasil Filter" value={String(metrics.hasilFilter)} />
                 <MetricCard icon="🗄️" label="Total DB" value={String(metrics.totalDb)} />
-                <MetricCard icon="1️⃣" label="Sudah T1" value={String(metrics.sudahT1)} />
-                <MetricCard icon="2️⃣" label="Sudah T2" value={String(metrics.sudahT2)} />
+                <MetricCard icon="🟡" label="Sudah T1" value={String(metrics.sudahT1)} />
+                <MetricCard icon="🟢" label="Sudah T2" value={String(metrics.sudahT2)} />
+              </MetricRow>
+            </div>
+
+            {/* Phone validation card */}
+            <div className="mt-6 rounded-[10px] border border-border bg-surface p-4 shadow-[var(--dm-shadow)]">
+              <p className="mb-2 text-[0.78rem] font-bold uppercase tracking-[0.14em] text-brand">Validasi Nomor HP</p>
+              <MetricRow>
+                <MetricCard icon="📊" label="Total Baris" value={String(phoneValidation.total)} />
+                <MetricCard icon="✅" label="Valid (unik)" value={String(phoneValidation.validUnique)} />
+                <MetricCard icon="⚠️" label="Kosong/Kurang" value={String(phoneValidation.missingCount)} />
+                <MetricCard icon="🔄" label="Duplikat" value={String(phoneValidation.duplicatesRemoved)} />
               </MetricRow>
             </div>
 
             <Divider />
+            {/* ====================================================================
+                BULK SELECTION TOOLBAR (above table)
+                ==================================================================== */}
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {!anySelected ? (
+                  <Button variant="ghost" onClick={selectAllFiltered} disabled={filtered.length === 0}>
+                    ☑️ Pilih semua terfilter ({filtered.length})
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[0.85rem] font-semibold text-brand">{selectedIds.size} terpilih</span>
+                    <Button variant="ghost" onClick={deselectAll}>Batal pilih semua</Button>
+                  </div>
+                )}
+              </div>
+            </div>
 
-            <DataTable
-              rows={filtered}
-              columns={declared}
-              emptyTitle="Tidak ada hasil filter."
-              emptyHint="Ubah kata kunci atau pilihan filter."
-            />
+            {/* ====================================================================
+                DATA TABLE (custom: checkbox + simplified cols + expandable detail)
+                ==================================================================== */}
+            <div className="overflow-hidden rounded-[10px] border border-border bg-surface shadow-[var(--dm-shadow)]">
+              {filtered.length === 0 ? (
+                <div className="px-6 py-12"><EmptyState title="Tidak ada hasil filter." hint="Ubah kata kunci atau pilihan filter." /></div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-left">
+                    {/* Sticky header */}
+                    <thead className="sticky top-0 z-10 border-b border-divider bg-surface">
+                      <tr>
+                        <th className="border-b border-divider px-3 py-2.5 text-left text-[0.75rem] font-semibold uppercase tracking-[0.02em] text-muted" style={{ width: "36px" }}>
+                          <input type="checkbox" checked={allFilteredSelected} onChange={selectAllFiltered}
+                            className="h-[15px] w-[15px] rounded-[4px] border-2 border-brand/40 accent-brand cursor-pointer" aria-label="Pilih semua" />
+                        </th>
+                        <th className="border-b border-divider px-3 py-2.5 text-left text-[0.75rem] font-semibold uppercase tracking-[0.02em] text-muted" style={{ width: "40px" }}>#</th>
+                        <th className="border-b border-divider px-3 py-2.5 text-left text-[0.75rem] font-semibold uppercase tracking-[0.02em] text-muted">No Hp</th>
+                        <th className="border-b border-divider px-3 py-2.5 text-left text-[0.75rem] font-semibold uppercase tracking-[0.02em] text-muted">Nama</th>
+                        <th className="border-b border-divider px-3 py-2.5 text-left text-[0.75rem] font-semibold uppercase tracking-[0.02em] text-muted">Mekari Tag</th>
+                        <th className="border-b border-divider px-3 py-2.5 text-left text-[0.75rem] font-semibold uppercase tracking-[0.02em] text-muted">Kategori</th>
+                        <th className="border-b border-divider px-3 py-2.5 text-left text-[0.75rem] font-semibold uppercase tracking-[0.02em] text-muted">Domisili</th>
+                        <th className="border-b border-divider px-3 py-2.5 text-left text-[0.75rem] font-semibold uppercase tracking-[0.02em] text-muted">Status Treatment</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((row, idx) => {
+                        const hpRaw = String(row["No Hp"] ?? "");
+                        const hpNorm = normalizePhone(hpRaw);
+                        const nama = String(row["Nama"] ?? "");
+                        const mekari = String(row["Mekari Tag (Status Terakhir)"] ?? "");
+                        const kategori = String(row["Kategori"] ?? "");
+                        const domisili = String(row["Domisili"] ?? "");
+                        const treatBadge = computeTreatmentStatus(row);
+                        const isSelected = selectedIds.has(idx);
 
+                        return (
+                          <>
+                            <tr key={idx}
+                              className={`border-b border-divider cursor-pointer transition-colors ${isSelected ? "bg-brand/[0.06]" : "hover:bg-gray-50"}`}
+                              onClick={(e) => {
+                                if ((e.target as HTMLElement).type !== "checkbox") setExpandedRowIdx(expandedRowIdx === idx ? null : idx);
+                              }}
+                            >
+                              {/* Checkbox cell */}
+                              <td className="border-b border-divider px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                                <input type="checkbox" checked={isSelected} onChange={() => toggleRowSelection(idx)}
+                                  className="h-[15px] w-[15px] rounded-[4px] border-2 border-brand/40 accent-brand cursor-pointer"
+                                  aria-label={`Pilih ${nama || idx}`} />
+                              </td>
+                              <td className="border-b border-divider px-3 py-2 text-[0.75rem] text-muted">{idx + 1}</td>
+                              <td className="border-b border-divider px-3 py-2">
+                                <span className={`text-[0.8125rem] font-mono ${hpNorm ? "text-ink" : "text-muted italic"}`}>{hpNorm || "—"}</span>
+                              </td>
+                              <td className="border-b border-divider px-3 py-2 text-[0.8125rem] font-medium text-ink">{nama || "—"}</td>
+                              <td className="border-b border-divider px-3 py-2 text-[0.8125rem] text-ink">{mekari || "—"}</td>
+                              <td className="border-b border-divider px-3 py-2 text-[0.8125rem] text-ink">{kategori || "—"}</td>
+                              <td className="border-b border-divider px-3 py-2 text-[0.8125rem] text-ink">{domisili || "—"}</td>
+                              <td className="border-b border-divider px-3 py-2"><TreatmentBadge badge={treatBadge} /></td>
+                            </tr>
+                            {/* Expanded detail row */}
+                            {expandedRowIdx === idx && (
+                              <tr className="bg-surface-strong">
+                                <td colSpan={8} className="px-5 py-3">
+                                  <div className="grid grid-cols-3 gap-3 text-[0.8125rem]">
+                                    <DetailCell label="Tanggal Lahir" value={row["Tanggal Lahir"]} />
+                                    <DetailCell label="Usia" value={row["Usia"]} />
+                                    <DetailCell label="Keterangan Form" value={row["Keterangan Setelah Isi Form"]} />
+                                    <DetailCell label="Tanggal Masuk" value={row["Tanggal Masuk Database"]} />
+                                    <DetailCell label="Treatment 1" value={row["Treatment 1"]} />
+                                    <DetailCell label="Treatment 2" value={row["Treatment 2"]} />
+                                    <DetailCell label="Tgl Treatment 1" value={row["Tanggal Treatment 1"]} />
+                                    <DetailCell label="Tgl Treatment 2" value={row["Tanggal Treatment 2"]} />
+                                    <DetailCell label="Status" value={row["Status"]} />
+                                    <DetailCell label="Updated Status" value={row["Updated Status After Treatment"]} />
+                                    <DetailCell label="Catatan" value={row["Catatan"]} fullCol />
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* ====================================================================
+                EXPORT ACTIONS
+                ==================================================================== */}
             <Divider />
-
-            {/* Ekspor — Mekari CSV */}
-            <SectionHeader title="Ekspor" subtitle="Unduh hasil filter sebagai CSV untuk Mekari." />
-            <div className="flex justify-end">
-              <Button variant="primary" onClick={downloadMekari} disabled={filtered.length === 0}>
-                ⬇️ Unduh hasil filter (CSV Mekari)
+            <SectionHeader title="Ekspor" subtitle="Unduh atau salin kontak untuk WhatsApp blasting." />
+            <div className="flex flex-wrap gap-3">
+              <Button variant="primary" onClick={downloadFiltered} disabled={filtered.length === 0}>
+                ⬇️ Export Filtered ({filtered.length} baris)
+              </Button>
+              <Button variant="secondary" onClick={downloadSelected} disabled={!anySelected}>
+                ⬇️ Export Selected ({selectedIds.size})
+              </Button>
+              <Button variant="secondary" onClick={copyPhoneNumbers} disabled={filtered.length === 0}>
+                📋 Copy Phone Numbers ({phoneValidation.validUnique} unik)
               </Button>
             </div>
+
+            {/* Floating action bar when rows are selected */}
+            {anySelected && (
+              <div className="fixed bottom-6 right-6 z-40 flex items-center gap-3 rounded-[12px] border border-border bg-surface px-5 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
+                <span className="text-[0.85rem] font-bold text-brand">{selectedIds.size} terpilih</span>
+                <div className="flex items-center gap-2">
+                  <Button variant="primary" onClick={downloadSelected} className="px-3 py-1.5 text-[0.78rem]">⬇️ Export</Button>
+                  <Button variant="secondary" onClick={copyPhoneNumbers} className="px-3 py-1.5 text-[0.78rem]">📋 Copy Numbers</Button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </main>
