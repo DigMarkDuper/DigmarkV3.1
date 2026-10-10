@@ -192,7 +192,7 @@ function TagAsalTreemap({ items }: { items: TreemapItem[] }) {
       </svg>
       {tip ? (
         <div
-          className="pointer-events-none absolute z-20 min-w-[168px] rounded-[12px] border border-border bg-surface px-3.5 py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.25)]"
+          className="pointer-events-none absolute z-20 min-w-[168px] rounded-[8px] border border-border bg-surface px-3.5 py-2.5 shadow-[var(--dm-shadow-lift)]"
           style={{ left: tip.x, top: tip.y }}
         >
           <div className="truncate text-[0.95rem] font-extrabold text-ink" title={tip.name}>{tip.name}</div>
@@ -233,9 +233,9 @@ function OperationalTable({
   const [expanded, setExpanded] = useState(false);
 
   const card = (
-    <section className="min-w-0 rounded-[20px] border border-border bg-surface p-4 shadow-[var(--dm-shadow)]">
+    <section className="min-w-0 rounded-[10px] border border-border bg-surface p-4 shadow-[var(--dm-shadow)]">
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-[9px] text-[0.95rem]" style={{ backgroundColor: `${color}1F` }}>
+        <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-[6px] text-[0.95rem]" style={{ backgroundColor: `${color}1F` }}>
           {icon}
         </span>
         <h4 className="text-[1.02rem] font-extrabold tracking-[-0.01em] text-ink">{title}</h4>
@@ -249,7 +249,7 @@ function OperationalTable({
           type="button"
           onClick={() => setExpanded(true)}
           disabled={rows.length === 0}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-[10px] border border-brand/30 px-3 py-1.5 text-[0.8rem] font-bold text-brand-hover transition-colors hover:border-brand hover:bg-brand/5"
+          className="ml-auto inline-flex items-center gap-1.5 rounded-[6px] border border-brand/30 px-3 py-1.5 text-[0.8rem] font-bold text-brand-hover transition-colors hover:border-brand hover:bg-brand/5"
           aria-label={`Perbesar tabel ${title}`}
         >
           ⛶ Full Screen
@@ -281,12 +281,12 @@ function OperationalTable({
         onKeyDown={(e) => {
           if (e.key === "Escape") setExpanded(false);
         }}
-        className="z-[70]"
+        className="fixed inset-0 z-[80] flex flex-col overflow-hidden"
       >
-        <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm" onClick={() => setExpanded(false)} aria-hidden />
-        <div className="fixed inset-x-3 inset-y-3 z-10 flex flex-col overflow-hidden rounded-[20px] border border-border bg-surface shadow-[var(--dm-shadow)] sm:inset-x-6 sm:inset-y-6">
+        <div className="absolute inset-0 bg-ink" onClick={() => setExpanded(false)} aria-hidden />
+        <div className="relative z-[1] flex flex-col flex-1 overflow-hidden rounded-[10px] border border-border bg-surface shadow-[var(--dm-shadow)]">
           <div className="flex flex-wrap items-center gap-3 border-b border-divider px-5 py-3.5">
-            <span aria-hidden className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[1.05rem]" style={{ backgroundColor: `${color}1F` }}>
+            <span aria-hidden className="flex h-8 w-8 items-center justify-center rounded-[6px] text-[1.05rem]" style={{ backgroundColor: `${color}1F` }}>
               {icon}
             </span>
             <h3 className="text-[1.15rem] font-extrabold tracking-[-0.01em] text-ink">{title}</h3>
@@ -369,7 +369,7 @@ function MekariTagList({ dist }: { dist: SourceStat[] }) {
         <button
           type="button"
           onClick={() => setExpanded(!expanded)}
-          className="mt-1 inline-flex shrink-0 items-center justify-center gap-1.5 rounded-[10px] border border-brand/30 px-3 py-1.5 text-[0.8rem] font-bold text-brand-hover transition-colors hover:border-brand hover:bg-brand/5"
+          className="mt-1 inline-flex shrink-0 items-center justify-center gap-1.5 rounded-[6px] border border-brand/30 px-3 py-1.5 text-[0.8rem] font-bold text-brand-hover transition-colors hover:border-brand hover:bg-brand/5"
         >
           {expanded ? "⤒ Tampilkan Lebih Sedikit" : `⤓ Lihat Semua (${dist.length} tag · ${total} lead)`}
         </button>
@@ -500,7 +500,7 @@ function QuickReport({
   return (
     <section
       aria-label="Quick Report WhatsApp Admin"
-      className="rounded-[20px] border border-border bg-surface p-5 shadow-[var(--dm-shadow)]"
+      className="rounded-[10px] border border-border bg-surface p-5 shadow-[var(--dm-shadow)]"
     >
       <div className="flex flex-wrap items-start justify-between gap-2 border-b border-divider pb-3">
         <div>
@@ -520,7 +520,7 @@ function QuickReport({
           { label: "Conversion", value: stats.conversionLabel },
           { label: "Closing / Target", value: stats.closingTargetLabel },
         ].map((m) => (
-          <div key={m.label} className="rounded-[14px] border border-border bg-white/70 p-3">
+          <div key={m.label} className="rounded-[8px] border border-border bg-surface p-3">
             <div className="text-[0.72rem] font-bold uppercase tracking-[0.04em] text-muted">{m.label}</div>
             <div className="mt-1 text-[1.25rem] font-extrabold text-ink">{m.value}</div>
           </div>
@@ -530,7 +530,7 @@ function QuickReport({
       <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2">
         <div>
           <h4 className="mb-2 text-[0.82rem] font-bold text-ink">Status</h4>
-          <ul className="divide-y divide-divider rounded-[14px] border border-border bg-white/70 px-3">
+          <ul className="divide-y divide-divider rounded-[8px] border border-border bg-surface px-3">
             {stats.statusDist.length ? stats.statusDist.slice(0, 8).map((d) => (
               <li key={d.name} className="flex items-center justify-between gap-3 py-1.5 text-[0.84rem]">
                 <span className="min-w-0 truncate text-ink">{d.name}</span>
@@ -541,7 +541,7 @@ function QuickReport({
         </div>
         <div>
           <h4 className="mb-2 text-[0.82rem] font-bold text-ink">Funnel Operasional</h4>
-          <ul className="divide-y divide-divider rounded-[14px] border border-border bg-white/70 px-3">
+          <ul className="divide-y divide-divider rounded-[8px] border border-border bg-surface px-3">
             <li className="flex items-center justify-between gap-3 py-1.5 text-[0.84rem]">
               <span className="text-ink">CLOSING</span>
               <span className="shrink-0 font-bold text-ink">{stats.closingRows.length}</span>
@@ -629,7 +629,7 @@ function NeedsAttention({ needs, total, matches }: {
 }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
   return (
-    <div className="rounded-[18px] border border-border bg-surface p-2 backdrop-blur-[8px] saturate-[140%] shadow-[0_6px_18px_rgba(0,88,163,0.08)]">
+    <div className="rounded-[10px] border border-border bg-surface p-2 shadow-[var(--dm-shadow)]">
       <div className="mb-2 flex items-center justify-between px-3">
         <span className="text-[0.82rem] font-semibold text-muted">Perlu Perhatian</span>
         {total > 0 ? (
@@ -673,7 +673,7 @@ function NeedsAttention({ needs, total, matches }: {
                         <button
                           key={i}
                           type="button"
-                          className="flex w-full items-center justify-between gap-3 rounded-[10px] px-2.5 py-1.5 text-left transition-colors hover:bg-brand/5"
+                          className="flex w-full items-center justify-between gap-3 rounded-[6px] px-2.5 py-1.5 text-left transition-colors hover:bg-brand/5"
                         >
                           <span className="min-w-0 truncate text-[0.82rem] text-ink" title={nama}>{nama}</span>
                           <span className="shrink-0 text-[0.76rem] text-muted">
@@ -725,7 +725,7 @@ function SourcePanel({ sources }: { sources: SourceRegStat[] }) {
  * Local field primitives + Status chip + ✏️ Ubah (PATCH per changed field).
  * ------------------------------------------------------------------------ */
 const FIELD_BASE =
-  "w-full h-10 px-3 rounded-[12px] bg-surface-input border border-border text-ink " +
+  "w-full h-10 px-3 rounded-[8px] bg-surface-input border border-border text-ink " +
   "placeholder:text-muted/70 focus:border-brand focus:shadow-[var(--dm-shadow-xs)] " +
   "focus:ring-2 focus:ring-brand focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
 const FIELD_ERROR = " border-danger focus:border-danger focus:ring-danger";
@@ -1044,7 +1044,7 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
   const statusOptions = inlOpts(distinctCellValues(rows, STATUS_COLUMN, STATUS_FALLBACK), editValues?.status);
 
   return (
-    <section className="rounded-[18px] border border-border bg-surface p-4 backdrop-blur-[8px] saturate-[140%] shadow-[0_6px_18px_rgba(0,88,163,0.08)]">
+    <section className="rounded-[10px] border border-border bg-surface p-4 shadow-[var(--dm-shadow)]">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <h4 className="text-[1.02rem] font-extrabold tracking-[-0.01em] text-ink">Pendaftar Terbaru</h4>
@@ -1071,8 +1071,8 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
           <EmptyState title="Belum ada pendaftar pada tahun ini." hint="Pilih tahun lain atau Semua Tahun." />
         </div>
       ) : (
-        <div className="max-h-[520px] overflow-y-auto rounded-[14px] border border-divider">
-          <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1.7rem)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_auto] gap-4 border-b border-divider bg-white/90 px-3 py-2 text-[0.72rem] font-bold uppercase tracking-[0.02em] text-muted backdrop-blur-[8px]">
+        <div className="max-h-[520px] overflow-y-auto rounded-[8px] border border-divider">
+          <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1.7rem)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_auto] gap-4 border-b border-divider bg-surface px-3 py-2 text-[0.72rem] font-bold uppercase tracking-[0.02em] text-muted">
             <span>No</span>
             <span>Tanggal Masuk</span>
             <span>Nama</span>
@@ -1159,7 +1159,7 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
                 {open ? (
                   <div id={`recent-detail-${i}`} role="region" aria-label={`Detail baris ${i + 1} · ${nama}`} className="mt-1.5 space-y-3">
                     {editingIndex === i && m ? (
-                      <div className="rounded-[14px] border border-brand/30 bg-white/70 px-4 py-3">
+                      <div className="rounded-[8px] border border-brand/30 bg-surface px-4 py-3">
                         <div className="mb-2 flex flex-wrap items-center gap-3">
                           <h5 className="text-[0.9rem] font-extrabold text-ink">✏️ Ubah Data WA Admin</h5>
                           <span className="rounded-full bg-brand/10 px-2.5 py-0.5 text-[0.78rem] font-bold text-brand-hover">
@@ -1188,7 +1188,7 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
                       </div>
                     ) : null}
                     {regEditingIndex === i ? (
-                      <div className="rounded-[14px] border border-brand/30 bg-white/70 px-4 py-3">
+                      <div className="rounded-[8px] border border-brand/30 bg-surface px-4 py-3">
                         <div className="mb-2 flex flex-wrap items-center gap-3">
                           <h5 className="text-[0.9rem] font-extrabold text-ink">✏️ Ubah Data Form Pendaftaran</h5>
                           <span className="rounded-full bg-brand/10 px-2.5 py-0.5 text-[0.78rem] font-bold text-brand-hover">
@@ -1220,7 +1220,7 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
                         </form>
                       </div>
                     ) : null}
-                    <div className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-[12px] border border-divider bg-white/60 px-3 py-2.5 md:grid-cols-3">
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-[8px] border border-divider bg-surface px-3 py-2.5 md:grid-cols-3">
                       {m ? (
                         <span
                           className="col-span-2 rounded-full px-2.5 py-0.5 text-[0.78rem] font-bold"
@@ -1234,7 +1234,7 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
                         </span>
                       )}
                       {detailGroups(r).map((g) => (
-                        <div key={g.group} className="rounded-[10px] border border-divider bg-white/40 p-2">
+                        <div key={g.group} className="rounded-[6px] border border-divider bg-white/40 p-2">
                           <p className="mb-1 text-[0.72rem] font-bold uppercase tracking-[0.04em] text-muted">{g.group}</p>
                           <div className="grid grid-cols-2 gap-x-4 gap-y-1 md:grid-cols-3 md:gap-x-6">
                             {g.fields.map(([label, val], j) => (
@@ -1257,7 +1257,7 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
       {toast ? (
         <div
           role="status"
-          className="fixed bottom-6 right-6 z-[80] flex items-center gap-2 rounded-[14px] border px-4 py-3 text-[0.86rem] font-semibold shadow-[var(--dm-shadow-lift)]"
+          className="fixed bottom-6 right-6 z-[80] flex items-center gap-2 rounded-[8px] border px-4 py-3 text-[0.86rem] font-semibold shadow-[var(--dm-shadow-lift)]"
           style={
             toast.kind === "success"
               ? { backgroundColor: "rgba(34,160,107,0.12)", borderColor: PALETTE.success, color: PALETTE.success }
@@ -1278,10 +1278,10 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
           onKeyDown={(e) => {
             if (e.key === "Escape") setExpanded(false);
           }}
-          className="z-[70]"
+          className="fixed inset-0 z-[80] flex flex-col overflow-hidden"
         >
-          <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm" onClick={() => setExpanded(false)} aria-hidden />
-          <div className="fixed inset-x-3 inset-y-3 z-10 flex flex-col overflow-hidden rounded-[20px] border border-border bg-surface shadow-[var(--dm-shadow)] sm:inset-x-6 sm:inset-y-6">
+          <div className="absolute inset-0 bg-ink" onClick={() => setExpanded(false)} aria-hidden />
+          <div className="relative z-[1] flex flex-col flex-1 overflow-hidden rounded-[10px] border border-border bg-surface shadow-[var(--dm-shadow)]">
             <div className="flex flex-wrap items-center gap-3 border-b border-divider px-5 py-3.5">
               <h3 className="text-[1.15rem] font-extrabold tracking-[-0.01em] text-ink">Pendaftar Terbaru</h3>
               <span className="rounded-full bg-brand/10 px-2.5 py-0.5 text-[0.8rem] font-bold text-brand-hover">{recent.length}</span>
@@ -1292,8 +1292,8 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
             </div>
             <div className="min-h-0 flex-1 overflow-auto px-5 pb-5 pt-3">
               {recent.length ? (
-                <div className="overflow-x-auto rounded-[14px] border border-divider">
-                  <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,3rem)_minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1fr)_auto] gap-4 border-b border-divider bg-white/90 px-4 py-2 text-[0.74rem] font-bold uppercase tracking-[0.02em] text-muted backdrop-blur-[8px]">
+                <div className="overflow-x-auto rounded-[8px] border border-divider">
+                  <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,3rem)_minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1fr)_auto] gap-4 border-b border-divider bg-surface px-4 py-2 text-[0.74rem] font-bold uppercase tracking-[0.02em] text-muted">
                     <span>No</span>
                     <span>Tanggal Masuk</span>
                     <span>Nama</span>
@@ -1348,7 +1348,7 @@ function RecentTable({ recent, matches, rows, onRefresh }: {
 function PicTable({ stats }: { stats: PicStat[] }) {
   if (stats.length === 0) {
     return (
-      <section className="rounded-[18px] border border-border bg-surface p-2 backdrop-blur-[8px] saturate-[140%] shadow-[0_6px_18px_rgba(0,88,163,0.08)]">
+      <section className="rounded-[10px] border border-border bg-surface p-2 shadow-[var(--dm-shadow)]">
         <div className="h-[400px]">
           <EmptyState title="Belum ada data per PIC." hint="Belum ada nama ditugaskan ke PIC dalam WA ADMIN REPORT." icon="👥" />
         </div>
@@ -1357,9 +1357,9 @@ function PicTable({ stats }: { stats: PicStat[] }) {
   }
   const rowCls = "grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)] gap-4";
   return (
-    <section className="rounded-[18px] border border-border bg-surface p-2 backdrop-blur-[8px] saturate-[140%] shadow-[0_6px_18px_rgba(0,88,163,0.08)]">
-      <div className="max-h-[420px] overflow-y-auto rounded-[14px] border border-divider">
-        <div className={`${rowCls} sticky top-0 z-10 border-b border-divider bg-white/90 px-3 py-2 text-[0.72rem] font-bold uppercase tracking-[0.02em] text-muted backdrop-blur-[8px]`}>
+    <section className="rounded-[10px] border border-border bg-surface p-2 shadow-[var(--dm-shadow)]">
+      <div className="max-h-[420px] overflow-y-auto rounded-[8px] border border-divider">
+        <div className={`${rowCls} sticky top-0 z-10 border-b border-divider bg-surface px-3 py-2 text-[0.72rem] font-bold uppercase tracking-[0.02em] text-muted`}>
           <span>PIC</span>
           <span>Total Nama Ditugaskan</span>
           <span>Sudah Bayar</span>
@@ -1553,7 +1553,7 @@ export function WaAdminDashboard({
         </div>
       </header>
 
-      <section className="mb-8 flex flex-wrap items-end gap-4 rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]">
+      <section className="mb-8 flex flex-wrap items-end gap-4 rounded-[8px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]">
         <div className="min-w-52">
           <Select
             label="Filter Tahun"
@@ -1636,7 +1636,7 @@ export function WaAdminDashboard({
       <Divider />
 
       {/* BAND 6 — Analisis WhatsApp Admin (folded, no regression) */}
-      <section className="mb-8 rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]">
+      <section className="mb-8 rounded-[8px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]">
         <button
           type="button"
           onClick={() => setAnalisisOpen(!analisisOpen)}
@@ -1658,7 +1658,7 @@ export function WaAdminDashboard({
             ) : (
               <>
                 {/* Filter Bulanan (D1/D7) */}
-                <section className="mb-8 flex flex-wrap items-end gap-4 rounded-[16px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]">
+                <section className="mb-8 flex flex-wrap items-end gap-4 rounded-[8px] border border-border bg-surface p-4 shadow-[var(--dm-shadow-xs)]">
                   <div className="min-w-52">
                     <Select
                       label="Filter Bulan"
@@ -1753,7 +1753,7 @@ export function WaAdminDashboard({
                         options={[{ value: allStatusesLabel, label: allStatusesLabel }, ...stats.options.map((o) => ({ value: o, label: o }))]}
                         onSelect={(v) => setSelStatus(v)}
                       />
-                      <div className="ml-auto rounded-[14px] border border-border bg-surface px-4 py-2 shadow-[var(--dm-shadow-xs)]">
+                      <div className="ml-auto rounded-[8px] border border-border bg-surface px-4 py-2 shadow-[var(--dm-shadow-xs)]">
                         <span className="text-[0.82rem] font-semibold text-muted">Jumlah </span>
                         <span className="text-[1.1rem] font-extrabold text-ink">{detailRows.length}</span>
                       </div>
@@ -1802,7 +1802,7 @@ export function WaAdminDashboard({
                       type="month"
                       value={customMonth}
                       onChange={(e) => setCustomMonth(e.target.value)}
-                      className="w-full rounded-[10px] border border-border bg-surface px-3 py-2 text-[0.84rem] text-ink outline-none transition focus:border-brand/60 focus:ring-2 focus:ring-brand/20"
+                      className="w-full rounded-[6px] border border-border bg-surface px-3 py-2 text-[0.84rem] text-ink outline-none transition focus:border-brand/60 focus:ring-2 focus:ring-brand/20"
                     />
                   </div>
                   <div className="flex flex-wrap gap-3">
